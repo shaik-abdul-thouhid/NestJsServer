@@ -1,6 +1,6 @@
 import { Injectable, Scope } from '@nestjs/common';
 import { Model } from 'mongoose';
-import { Account, EmailVerification, PhoneVerification, VerificationStatus } from './auth.model';
+import { Account, EmailVerification, LoginLogs, PhoneVerification, VerificationStatus } from './auth.model';
 import { v4 } from "uuid";
 import { Authority } from "./auth.model";
 import { InjectModel } from "@nestjs/mongoose";
@@ -131,9 +131,10 @@ export class VerificationClass {
 			const newVerification = new this.verifyEmail({
 				emailId: data.emailId,
 				verificationToken: randomBytes(32).toString('hex'),
-				expiryDate: (Date.now() + (12 * 60 * 60)),
+				expiryDate: (Date.now() + (12 * 60 * 60 * 60)),
 				refId: data.refId,
-				verificationStatus: VerificationStatus.NOTVERIFIED
+				verificationStatus: VerificationStatus.NOTVERIFIED,
+				verifiedOn: 'null'
 			});
 			const res = await newVerification.save();
 			return ({
@@ -153,9 +154,10 @@ export class VerificationClass {
 			const newVerification = new this.verifyPhone({
 				phone: data.phone.toString(),
 				OTP: Math.floor(100000 + Math.random() * 900000),
-				expiryDate: (Date.now() + (12 * 60 * 60)),
+				expiryDate: (Date.now() + (12 * 60 * 60 * 60)),
 				refId: data.refId,
-				verificationStatus: VerificationStatus.NOTVERIFIED
+				verificationStatus: VerificationStatus.NOTVERIFIED,
+				verifiedOn: 'null'
 			});
 
 			const res = await newVerification.save();
@@ -183,7 +185,7 @@ export class VerificationClass {
 			else {
 				const update = await this.verifyEmail.findByIdAndUpdate(availability.id, { 
 					verificationToken: randomBytes(32).toString('hex'),
-					expiryDate: (Date.now() + (12 * 60 * 60)),
+					expiryDate: (Date.now() + (12 * 60 * 60 * 60)),
 				}, { returnOriginal: false });
 				return { statusCode: 200, verificationToken: update.verificationToken };
 			}
@@ -210,7 +212,7 @@ export class VerificationClass {
 			else {
 				const update = await this.verifyPhone.findByIdAndUpdate(availability.id, { 
 					OTP: Math.floor(100000 + Math.random() * 900000),
-					expiryDate: (Date.now() + (12 * 60 * 60)),
+					expiryDate: (Date.now() + (12 * 60 * 60 * 60)),
 				}, { returnOriginal: false });
 				return { statusCode: 200, OTP: update.OTP };
 			}
@@ -220,6 +222,89 @@ export class VerificationClass {
 			return ({
 				statusCode: 404,
 				statusMessage: 'Email Not Found'
+			});
+		}
+	}
+
+	public async VerifyEmail(data: { refId: string, verificationToken: string }) {
+		const getObject = await this.verifyEmail.findOne({ refId: data.refId });
+		if (!getObject) {
+			return ({
+				status: 404,
+				statusMessage: 'Email Not Found'
+			});
+		}
+		else if (getObject.verificationStatus === VerificationStatus.VERIFIED) {
+			return ({
+				status: 400,
+				statusMessage: 'Email already verified'
+			});
+		}
+		else if (getObject.expiryDate <= Date.now()) {
+			return ({
+				status: 400,
+				statusMessage: 'Token expired, please request for another verification token'
+			});
+		}
+		
+		if (getObject.verificationToken === data.verificationToken) {
+			const updateStatus = await this.verifyEmail.findByIdAndUpdate(getObject.id, { verificationStatus: VerificationStatus.VERIFIED, verifiedOn: Date() }, { returnOriginal: false });
+			if (updateStatus) {
+				return ({
+					status: 201,
+					statusMessage: 'Email Verified'
+				});
+			}
+			else return ({
+				status: 404, 
+				statusMessage: 'Unable to verify EmailId'
+			});
+		}
+		else {
+			return ({
+				status: 400,
+				statusMessage: 'Wrong Token'
+			});
+		}
+	}
+	public async VerifyOTP(data: { refId: string, OTP: number }) {
+		const getObject = await this.verifyPhone.findOne({ refId: data.refId });
+		if (!getObject) {
+			return ({
+				status: 404,
+				statusMessage: 'Phone Number Not Found'
+			});
+		}
+		else if (getObject.verificationStatus === VerificationStatus.VERIFIED) {
+			return ({
+				status: 400,
+				statusMessage: 'Phone Number already verified'
+			});
+		}
+		else if (getObject.expiryDate <= Date.now()) {
+			return ({
+				status: 400,
+				statusMessage: 'OTP expired, please request for another verification token'
+			});
+		}
+		
+		if (getObject.OTP === data.OTP) {
+			const updateStatus = await this.verifyPhone.findByIdAndUpdate(getObject.id, { verificationStatus: VerificationStatus.VERIFIED, verifiedOn: Date() }, { returnOriginal: false });
+			if (updateStatus) {
+				return ({
+					status: 201,
+					statusMessage: 'Phone Number Verified'
+				});
+			}
+			else return ({
+				status: 404, 
+				statusMessage: 'Unable to verify Phone Number'
+			});
+		}
+		else {
+			return ({
+				status: 400,
+				statusMessage: 'Wrong OTP'
 			});
 		}
 	}
@@ -234,6 +319,7 @@ export class VerificationClass {
 export class AuthenticationClass {
 	constructor(
 		@InjectModel('Accounts') private readonly account: Model<Account>,
+		@InjectModel('LoginLogs') private readonly loginLogs: Model<LoginLogs>,
 		private readonly verification: VerificationClass
 	) {}
 
@@ -243,7 +329,6 @@ export class AuthenticationClass {
 		if ('emailId' in params) {
 			const result = await this.account.findOne({ emailId: params.emailId }).exec();
 			if (result) {
-				console.log('emailId present:', result);
 				return {
 					statusCode: 200,
 					available: 'emailId',
@@ -255,7 +340,6 @@ export class AuthenticationClass {
 		if ('phone' in params) {
 			const result = await this.account.findOne({ phone: params.phone.toString() }).exec();
 			if (result) {
-				console.log('Phone present:', result);
 				return {
 					statusCode: 200,
 					available: 'phone',
@@ -324,6 +408,7 @@ export class AuthenticationClass {
 				}
 			});
 		} catch (e) {
+			console.log(e);
 			return ({
 				statusCode: 400,
 				statusMessage: 'Unable to create account'
@@ -347,7 +432,7 @@ export class AuthenticationClass {
 	} | {
 		phone: string | number,
 		password: string
-	}) {
+	}, headers: Headers, ip: string) {
 		const result = await this.account.findOne({ ...credentials }).exec();
 
 		if (!result) 
@@ -373,12 +458,41 @@ export class AuthenticationClass {
 					status: 400,
 					statusMessage: 'Phone number is not verified'
 				});
-
-			return ({
-				statusCode: 200,
-				statusMessage: 'Logged In',
-				authToken: TokenizationClass.GenerateTokenForLogin({ id: (result.id as string) })
-			});
+			
+			const logRef = await this.loginLogs.findOne({ refId: result.id as string });
+			if (!logRef) {
+				const newLog = new this.loginLogs({
+					refId: result.id as string,
+					logs: [ { ...headers, date: Date(), ip: ip } ]
+				})
+				const res = newLog.save();
+				if (res)
+					return ({
+						statusCode: 200,
+						statusMessage: 'Logged In',
+						authToken: TokenizationClass.GenerateTokenForLogin({ id: (result.id as string) })
+					});
+				else
+					return ({
+						status: 500,
+						statusMessage: 'Not able to login'
+					})
+			}
+			else {
+				const updatedLog = await this.loginLogs.findByIdAndUpdate(logRef.id, { $push: { logs: { ...headers, date: Date(), ip: ip } } },{ returnOriginal: false });
+				if (updatedLog)
+					return ({
+						statusCode: 200,
+						statusMessage: 'Logged In',
+						authToken: TokenizationClass.GenerateTokenForLogin({ id: (result.id as string) })
+					});
+				else
+					return ({
+						status: 500,
+						statusMessage: 'Not able to login'
+					});
+			}
+			
 		}
 	}
 	public async LoginGateway(credentials: {
@@ -387,7 +501,7 @@ export class AuthenticationClass {
 	} | {
 		phone: string | number,
 		password: string
-	}) {
+	}, headers: Headers, ip: string) {
 		if ('emailId' in credentials && 'password' in credentials) {
 			if (!(ValidatorClass.validateEmail(credentials.emailId)) && !(ValidatorClass.validatePassword(credentials.password))) {
 				return ({
@@ -396,7 +510,7 @@ export class AuthenticationClass {
 				});
 			}
 			else {
-				return await this.Login(credentials);
+				return await this.Login(credentials, headers, ip);
 			}
 		}
 
@@ -408,7 +522,7 @@ export class AuthenticationClass {
 				});
 			}
 			else {
-				return await this.Login(credentials);
+				return await this.Login(credentials, headers, ip);
 			}
 		}
 	}
@@ -498,6 +612,100 @@ export class AuthenticationClass {
 			}
 		}
 	}
+
+	//================ Api for confirming email
+	private async confirmEmail(credentials: { emailId: string, verificationToken: string }) {
+		const getObject = await this.account.findOne({ emailId: credentials.emailId });
+		console.log(getObject);
+		if (!getObject) {
+			return ({
+				status: 404,
+				statusMessage: 'Email Not found'
+			});
+		}
+		else if (getObject.verificationStatus.email === VerificationStatus.VERIFIED) {
+			return ({
+				status: 400,
+				statusMessage: 'Email already verified'
+			});
+		}
+		else {
+			const verify = await this.verification.VerifyEmail({ refId: getObject.id, verificationToken: credentials.verificationToken });
+			if (verify.status === 201) {
+				const update = await this.account.findByIdAndUpdate(getObject.id, { verificationStatus: { email: VerificationStatus.VERIFIED, phone: getObject.verificationStatus.phone } }, { returnOriginal: false });
+				if (update) {
+					return ({
+						status: 201,
+						statusMessage: 'Email verified'
+					});
+				}
+				else {
+					return ({
+						status: 500,
+						statusMessage: 'Unable to verify the email'
+					});
+				}
+			}
+		}
+	}
+	public async confirmEmailGateway(credentials: { emailId: string, verificationToken: string }) {
+		if (ValidatorClass.validateEmail(credentials.emailId) && credentials.verificationToken.length === 64) {
+			return await this.confirmEmail(credentials);
+		}
+		else { 
+			return ({
+				status: 400,
+				statusMessage: 'Provided credentials are invalid'
+			});
+		}
+	}
+
+	//================ Api for Verifying OTP
+	private async verifyOTP(credentials: { phone: string | number, OTP: number }) {
+		const getObject = await this.account.findOne({ phone: credentials.phone.toString() });
+		console.log(getObject);
+		if (!getObject) {
+			return ({
+				status: 404,
+				statusMessage: 'Phone Number Not found'
+			});
+		}
+		else if (getObject.verificationStatus.phone === VerificationStatus.VERIFIED) {
+			return ({
+				status: 400,
+				statusMessage: 'Phone Number already verified'
+			});
+		}
+		else {
+			const verify = await this.verification.VerifyOTP({ refId: getObject.id, OTP: credentials.OTP });
+			if (verify.status === 201) {
+				const update = await this.account.findByIdAndUpdate(getObject.id, { verificationStatus: { phone: VerificationStatus.VERIFIED, email: getObject.verificationStatus.email } }, { returnOriginal: false });
+				if (update) {
+					return ({
+						status: 201,
+						statusMessage: 'Phone Number verified'
+					});
+				}
+				else {
+					return ({
+						status: 500,
+						statusMessage: 'Unable to verify Phone Number'
+					});
+				}
+			}
+		}
+	}
+	public async verifyOTPGateway(credentials: { phone: string | number, OTP: number }) {
+		if (ValidatorClass.validatePhone(credentials.phone)) {
+			return await this.verifyOTP(credentials);
+		}
+		else { 
+			return ({
+				status: 400,
+				statusMessage: 'Provided Phone Number is invalid'
+			});
+		}
+	}
 }
 
 @Injectable()
@@ -534,21 +742,25 @@ export class AuthService {
 			});
 
 	}
-
 	public async login(credentials: {
 		emailId: string,
 		password: string
 	} | {
 		phone: string | number,
 		password: string
-	}) {
-		return await this.authenticate.LoginGateway(credentials);
+	}, headers: Headers, ip: string) {
+		return await this.authenticate.LoginGateway(credentials, headers, ip);
 	}
-
 	public async requestForNewEmailToken(credentials: { emailId: string }) {
 		return await this.authenticate.requestEmailVerificationTokenGateway(credentials);
 	}
 	public async requestForNewOTP(credentials: { phone: string | number }) {
 		return await this.authenticate.requestOTPGateway(credentials);
+	}
+	public async verifyEmail(credentials: { emailId: string, verificationToken: string }) {
+		return await this.authenticate.confirmEmailGateway(credentials);
+	}
+	public async verifyOTP(credentials: { phone: string | number, OTP: number }) {
+		return await this.authenticate.verifyOTPGateway(credentials);
 	}
 }

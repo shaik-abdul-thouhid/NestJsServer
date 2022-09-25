@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Headers } from '@nestjs/common';
 import { AuthService } from "src/auth/auth.service";
 
 @Injectable()
@@ -17,12 +17,12 @@ export class UsersService {
 
 	public async Login(credentials: { 
 		emailId: string, 
-		password: string 
+		password: string,
 	} | {
 		phone: string | number,
 		password: string
-	}) {
-		return await this.authService.login(credentials);
+	}, headers: Headers, ip: string) {
+		return await this.authService.login(credentials, headers, ip);
 	}
 
 	public async requestForNewEmailToken(credentials: { emailId: string }) {
@@ -30,6 +30,13 @@ export class UsersService {
 	}
 	public async requestForNewOTP(credentials: { phone: string | number }) {
 		return await this.authService.requestForNewOTP(credentials);
+	}
+
+	public async verifyEmail(credentials: { emailId: string, verificationToken: string }) {
+		return await this.authService.verifyEmail(credentials);
+	}
+	public async verifyOTP(credentials: { phone: string | number, OTP: number }) {
+		return await this.authService.verifyOTP(credentials);
 	}
 	
 }

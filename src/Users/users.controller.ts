@@ -1,5 +1,6 @@
-import { Controller, Post, Get, Body, Header } from '@nestjs/common';
+import { Controller, Post, Get, Body, Header, Request, Req, } from '@nestjs/common';
 import { UsersService } from './users.service';
+import { getClientIp } from '@supercharge/request-ip';
 
 @Controller('user')
 export class UsersController {
@@ -17,7 +18,7 @@ export class UsersController {
 		return await this.usersService.createAccount(credentials);
 	}
 
-	@Get('login')
+	@Post('login')
 	@Header('X-Powered-By', 'MiniTube')
 	public async Login(@Body('credentials') credentials: {
 		emailId: string,
@@ -25,8 +26,8 @@ export class UsersController {
 	} | {
 		phone: string | number,
 		password: string
-	}) {
-		return await this.usersService.Login(credentials);
+	}, @Req() request: Request) {
+		return await this.usersService.Login(credentials, request.headers, getClientIp(request));
 	}
 
 	@Get('new-email-token')
@@ -34,9 +35,22 @@ export class UsersController {
 	public async RequestForNewEmailToken(@Body('credentials') credentials: { emailId: string }) {
 		return await this.usersService.requestForNewEmailToken(credentials);
 	}
+
 	@Get('new-otp')
 	@Header('X-Powered-By', 'MiniTube')
 	public async RequestForNewOTP(@Body('credentials') credentials: { phone: string | number }) {
 		return await this.usersService.requestForNewOTP(credentials);
+	}
+
+	@Post('verify-email')
+	@Header('X-Powered-By', 'MiniTube')
+	public async VerifyEmail(@Body('credentials') credentials: { emailId: string, verificationToken: string }) {
+		return await this.usersService.verifyEmail(credentials);
+	}
+
+	@Post('verify-otp')
+	@Header('X-Powered-By', 'MiniTube')
+	public async VerifyOTP(@Body('credentials') credentials: { phone: string | number, OTP: number }) {
+		return await this.usersService.verifyOTP(credentials);
 	}
 }

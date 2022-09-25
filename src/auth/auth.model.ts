@@ -36,7 +36,8 @@ export const EmailVerificationModel = new Schema({
 	verificationToken: { type: String, required: true },
 	expiryDate: { type: Number, required: true },
 	refId: { type: String, required: true },
-	verificationStatus: { type: Number, required: true }
+	verificationStatus: { type: Number, required: true },
+	verifiedOn: { type: String, required: true }
 });
 
 export interface EmailVerification {
@@ -44,7 +45,8 @@ export interface EmailVerification {
 	verificationToken: string,
 	expiryDate: number,
 	refId: string,
-	verificationStatus: VerificationStatus
+	verificationStatus: VerificationStatus,
+	verifiedOn: string
 }
 
 export const PhoneVerificationModel = new Schema({
@@ -52,7 +54,8 @@ export const PhoneVerificationModel = new Schema({
 	OTP: { type: Number, required: true },
 	expiryDate: { type: Number, required: true },
 	refId: { type: String, required: true },
-	verificationStatus: { type: Number, required: true }
+	verificationStatus: { type: Number, required: true },
+	verifiedOn: { type: String, required: true }
 });
 
 export interface PhoneVerification {
@@ -60,7 +63,8 @@ export interface PhoneVerification {
 	OTP: number,
 	expiryDate: number,
 	refId: string,
-	verificationStatus: VerificationStatus
+	verificationStatus: VerificationStatus,
+	verifiedOn: string
 }
 
 export enum Authority {
@@ -73,4 +77,13 @@ export enum Authority {
 export enum VerificationStatus {
 	VERIFIED = 0X0E00,
 	NOTVERIFIED = 0X00E0
+}
+
+export const LoginLogsModel = new Schema({
+	refId: { type: String, required: true },
+	logs: { type: [Schema.Types.Mixed], required: true }
+});
+export interface LoginLogs {
+	refId: string,
+	logs: any[]
 }
