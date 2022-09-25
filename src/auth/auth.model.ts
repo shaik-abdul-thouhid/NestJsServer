@@ -2,18 +2,18 @@ import { Schema } from "mongoose";
 import { v4 } from 'uuid';
 
 export const AccountModel = new Schema({
-	UiD: { type: String, required: true, default: v4() },
+	UiD: { type: String, required: true },
 	firstName: { type: String, required: true },
 	lastName: { type: String, required: false },
 	emailId: { type: String, required: true },
 	phone: { type: String, required: true },
 	password: { type: String, required: true },
-	Authority: { type: Number, required: true, default: 0x000F0 },
+	Authority: { type: Number, required: true },
 	verificationStatus: { type: {
-		email: { type: Number, required: true, default: 224 },
-		phone: { type: Number, required: true, default: 224 }
+		email: { type: Number, required: true },
+		phone: { type: Number, required: true }
 	}, required: true, default: false },
-	createdAt: { type: String, required: true, default: Date() }
+	createdAt: { type: String, required: true }
 });
 
 export interface Account {
