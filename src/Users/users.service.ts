@@ -42,7 +42,7 @@ export class UsersService {
 	public async getUserDetails(req: Request, fields: string[] = []) {
 		if (!(req.headers['Authorization'] || req.headers['authorization'])) 
 			return ({ 
-				status: 400, 
+				statusCode: 400, 
 				statusMessage: 'Authorization Token not Found' 
 			});
 		const token: string = req.headers['Authorization'] as string || req.headers['authorization'] as string;
@@ -50,12 +50,12 @@ export class UsersService {
 
 		if (authenticationToken[0].toLowerCase() !== 'bearer')
 			return ({
-				status: 400,
+				statusCode: 400,
 				statusMessage: 'Bearer Token not found',
 			});
 		else if (authenticationToken[1].length !== 313)
 			return ({
-				status: 400,
+				statusCode: 400,
 				statusMessage: 'Invalid Authentication Token'
 			});
 		return await this.authService.getUserDetails(authenticationToken[1], fields);
@@ -64,7 +64,7 @@ export class UsersService {
 	public async RequestForAuthorityUpgrade(req: Request, requestedAuthority: string) {
 		if (!(req.headers['Authorization'] || req.headers['authorization'])) 
 			return ({ 
-				status: 400, 
+				statusCode: 400, 
 				statusMessage: 'Authorization Token not Found' 
 			});
 		const token: string = req.headers['Authorization'] as string || req.headers['authorization'] as string;
@@ -72,17 +72,17 @@ export class UsersService {
 
 		if (authenticationToken[0].toLowerCase() !== 'bearer')
 			return ({
-				status: 400,
+				statusCode: 400,
 				statusMessage: 'Bearer Token not found',
 			});
 		else if (authenticationToken[1].length !== 313)
 			return ({
-				status: 400,
+				statusCode: 400,
 				statusMessage: 'Invalid Authentication Token'
 			});
 		else if (requestedAuthority !== 'super' && requestedAuthority !== 'administrator' && requestedAuthority !== 'mid-tier')
 			return ({
-				status: 400,
+				statusCode: 400,
 				statusMessage: 'Invalid request for authority'
 			});
 		else

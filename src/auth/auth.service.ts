@@ -68,7 +68,7 @@ export class TokenizationClass {
 		}
 		catch(err) {
 			return ({
-				status: 'error',
+				statusCode: 'error',
 				...err
 			});
 		}
@@ -235,19 +235,19 @@ export class VerificationClass {
 		const getObject = await this.verifyEmail.findOne({ refId: data.refId });
 		if (!getObject) {
 			return ({
-				status: 404,
+				statusCode: 404,
 				statusMessage: 'Email Not Found'
 			});
 		}
 		else if (getObject.verificationStatus === VerificationStatus.VERIFIED) {
 			return ({
-				status: 400,
+				statusCode: 400,
 				statusMessage: 'Email already verified'
 			});
 		}
 		else if (getObject.expiryDate <= Date.now()) {
 			return ({
-				status: 400,
+				statusCode: 400,
 				statusMessage: 'Token expired, please request for another verification token'
 			});
 		}
@@ -256,18 +256,18 @@ export class VerificationClass {
 			const updateStatus = await this.verifyEmail.findByIdAndUpdate(getObject.id, { verificationStatus: VerificationStatus.VERIFIED, verifiedOn: Date() }, { returnOriginal: false });
 			if (updateStatus) {
 				return ({
-					status: 201,
+					statusCode: 201,
 					statusMessage: 'Email Verified'
 				});
 			}
 			else return ({
-				status: 404, 
+				statusCode: 404, 
 				statusMessage: 'Unable to verify EmailId'
 			});
 		}
 		else {
 			return ({
-				status: 400,
+				statusCode: 400,
 				statusMessage: 'Wrong Token'
 			});
 		}
@@ -276,19 +276,19 @@ export class VerificationClass {
 		const getObject = await this.verifyPhone.findOne({ refId: data.refId });
 		if (!getObject) {
 			return ({
-				status: 404,
+				statusCode: 404,
 				statusMessage: 'Phone Number Not Found'
 			});
 		}
 		else if (getObject.verificationStatus === VerificationStatus.VERIFIED) {
 			return ({
-				status: 400,
+				statusCode: 400,
 				statusMessage: 'Phone Number already verified'
 			});
 		}
 		else if (getObject.expiryDate <= Date.now()) {
 			return ({
-				status: 400,
+				statusCode: 400,
 				statusMessage: 'OTP expired, please request for another verification token'
 			});
 		}
@@ -297,18 +297,18 @@ export class VerificationClass {
 			const updateStatus = await this.verifyPhone.findByIdAndUpdate(getObject.id, { verificationStatus: VerificationStatus.VERIFIED, verifiedOn: Date() }, { returnOriginal: false });
 			if (updateStatus) {
 				return ({
-					status: 201,
+					statusCode: 201,
 					statusMessage: 'Phone Number Verified'
 				});
 			}
 			else return ({
-				status: 404, 
+				statusCode: 404, 
 				statusMessage: 'Unable to verify Phone Number'
 			});
 		}
 		else {
 			return ({
-				status: 400,
+				statusCode: 400,
 				statusMessage: 'Wrong OTP'
 			});
 		}
@@ -450,18 +450,18 @@ export class AuthenticationClass {
 		else {
 			if (result.verificationStatus.email === VerificationStatus.NOTVERIFIED && result.verificationStatus.phone === VerificationStatus.NOTVERIFIED) {
 				return ({
-					status: 400,
+					statusCode: 400,
 					statusMessage: 'Email and Phone are not verified'
 				});
 			}
 			else if (result.verificationStatus.email === VerificationStatus.NOTVERIFIED) 
 				return ({
-					status: 400,
+					statusCode: 400,
 					statusMessage: 'Email is not verified'
 				});
 			else if (result.verificationStatus.phone === VerificationStatus.NOTVERIFIED)
 				return ({
-					status: 400,
+					statusCode: 400,
 					statusMessage: 'Phone number is not verified'
 				});
 			
@@ -480,7 +480,7 @@ export class AuthenticationClass {
 					});
 				else
 					return ({
-						status: 500,
+						statusCode: 500,
 						statusMessage: 'Not able to login'
 					})
 			}
@@ -494,7 +494,7 @@ export class AuthenticationClass {
 					});
 				else
 					return ({
-						status: 500,
+						statusCode: 500,
 						statusMessage: 'Not able to login'
 					});
 			}
@@ -553,7 +553,7 @@ export class AuthenticationClass {
 
 			if (newToken.statusCode === 200) {
 				return ({
-					status: 'New Token generated',
+					statusCode: 'New Token generated',
 					verificationToken: newToken.verificationToken
 				});
 			}
@@ -596,7 +596,7 @@ export class AuthenticationClass {
 
 			if (newToken.statusCode === 200) {
 				return ({
-					status: 'New OTP generated',
+					statusCode: 'New OTP generated',
 					OTP: newToken.OTP
 				});
 			}
@@ -624,29 +624,29 @@ export class AuthenticationClass {
 		const getObject = await this.account.findOne({ emailId: credentials.emailId });
 		if (!getObject) {
 			return ({
-				status: 404,
+				statusCode: 404,
 				statusMessage: 'Email Not found'
 			});
 		}
 		else if (getObject.verificationStatus.email === VerificationStatus.VERIFIED) {
 			return ({
-				status: 400,
+				statusCode: 400,
 				statusMessage: 'Email already verified'
 			});
 		}
 		else {
 			const verify = await this.verification.VerifyEmail({ refId: getObject.id, verificationToken: credentials.verificationToken });
-			if (verify.status === 201) {
+			if (verify.statusCode === 201) {
 				const update = await this.account.findByIdAndUpdate(getObject.id, { verificationStatus: { email: VerificationStatus.VERIFIED, phone: getObject.verificationStatus.phone } }, { returnOriginal: false });
 				if (update) {
 					return ({
-						status: 201,
+						statusCode: 201,
 						statusMessage: 'Email verified'
 					});
 				}
 				else {
 					return ({
-						status: 500,
+						statusCode: 500,
 						statusMessage: 'Unable to verify the email'
 					});
 				}
@@ -659,7 +659,7 @@ export class AuthenticationClass {
 		}
 		else { 
 			return ({
-				status: 400,
+				statusCode: 400,
 				statusMessage: 'Provided credentials are invalid'
 			});
 		}
@@ -670,29 +670,29 @@ export class AuthenticationClass {
 		const getObject = await this.account.findOne({ phone: credentials.phone.toString() });
 		if (!getObject) {
 			return ({
-				status: 404,
+				statusCode: 404,
 				statusMessage: 'Phone Number Not found'
 			});
 		}
 		else if (getObject.verificationStatus.phone === VerificationStatus.VERIFIED) {
 			return ({
-				status: 400,
+				statusCode: 400,
 				statusMessage: 'Phone Number already verified'
 			});
 		}
 		else {
 			const verify = await this.verification.VerifyOTP({ refId: getObject.id, OTP: credentials.OTP });
-			if (verify.status === 201) {
+			if (verify.statusCode === 201) {
 				const update = await this.account.findByIdAndUpdate(getObject.id, { verificationStatus: { phone: VerificationStatus.VERIFIED, email: getObject.verificationStatus.email } }, { returnOriginal: false });
 				if (update) {
 					return ({
-						status: 201,
+						statusCode: 201,
 						statusMessage: 'Phone Number verified'
 					});
 				}
 				else {
 					return ({
-						status: 500,
+						statusCode: 500,
 						statusMessage: 'Unable to verify Phone Number'
 					});
 				}
@@ -705,7 +705,7 @@ export class AuthenticationClass {
 		}
 		else { 
 			return ({
-				status: 400,
+				statusCode: 400,
 				statusMessage: 'Provided Phone Number is invalid'
 			});
 		}
@@ -714,11 +714,12 @@ export class AuthenticationClass {
 	//================ Api for retreiving User Details
 	private async getUserDetails(id: string, fields: string[] = []) {
 		const find = await this.account.findById(id);
-		if (!find) return ({ status: 404, statusMessage: 'user not found' });
+		if (!find) return ({ statusCode: 404, statusMessage: 'user not found' });
 		else {
 			if (fields.length > 0) {
-				const keys = [ 'firstName', 'lastName', 'emailId', 'phone', 'createdAt' ];
+				const keys = [ 'id', 'firstName', 'lastName', 'emailId', 'phone', 'createdAt' ];
 				const userDetails: { 
+					id?: string,
 					firstName?: string, 
 					lastName?: string,
 					emailId?: string,
@@ -733,16 +734,17 @@ export class AuthenticationClass {
 					}
 				}
 				return ({
-					status: 201,
+					statusCode: 201,
 					statusMessage: 'User Details fetched',
 					userDetails: userDetails
 				});
 			}
 			else {
 				return ({
-					status: 201,
+					statusCode: 201,
 					statusMessage: 'User Details fetched',
 					userDetails: {
+						id: find.id,
 						firstName: find.firstName,
 						lastName: find.lastName,
 						emailId: find.emailId,
@@ -760,7 +762,7 @@ export class AuthenticationClass {
 		}
 		catch (e: unknown) {
 			return ({
-				status: 400,
+				statusCode: 400,
 				error: e as VerifyErrors,
 				statusMessage: 'Error in Token Verification'
 			});
@@ -772,7 +774,7 @@ export class AuthenticationClass {
 		const find = await this.account.findById(id);
 		if (!find)
 			return ({
-				status: 404,
+				statusCode: 404,
 				statusMessage: 'Account not found'
 			});
 		
@@ -780,17 +782,17 @@ export class AuthenticationClass {
 		console.log(searchForRequest);
 		if (searchForRequest)
 			return ({
-				status: 400,
+				statusCode: 400,
 				statusMessage: 'One request Already found'
 			});
 		else if (authorityToUpgrade === Authority.CLIENT)
 			return ({
-				status: 400,
+				statusCode: 400,
 				statusMessage: 'Cannot change to client'
 			});
 		else if (find.Authority === Authority.SUPERUSER)
 			return ({
-				status: 400,
+				statusCode: 400,
 				statusMessage: 'User already Super User'
 			});
 		else if (
@@ -799,12 +801,12 @@ export class AuthenticationClass {
 			authorityToUpgrade === Authority.SUPERUSER
 			))
 			return ({
-				status: 400,
+				statusCode: 400,
 				statusMessage: 'Cannot upgrade authority to Administrator'
 			});
 		else if (find.Authority === Authority.MIDTIERUSER && authorityToUpgrade === Authority.MIDTIERUSER)
 			return ({
-				status: 400,
+				statusCode: 400,
 				statusMessage: 'Already a Midtier User'
 			});
 		else {
@@ -818,13 +820,13 @@ export class AuthenticationClass {
 				const result = await requestStatus.save();
 				if (result)
 					return ({
-						status: 201,
+						statusCode: 201,
 						statusMessage: 'Request submitted successfully'
 					});
 			}
 			catch (e: unknown) {
 				return ({
-					status: 500,
+					statusCode: 500,
 					statusMessage: 'Unknown Error',
 					error: e
 				});
@@ -841,13 +843,13 @@ export class AuthenticationClass {
 				return await this.requestForAuthorityUpgrade(tokenValue, upgrade);
 			else
 				return ({
-					status: 400,
+					statusCode: 400,
 					statusMessage: 'Authority request is not defined'
 				});
 		}
 		catch (e: unknown) {
 			return ({
-				status: 400,
+				statusCode: 400,
 				error: e as VerifyErrors,
 				statusMessage: 'Error in Token Verification'
 			});
