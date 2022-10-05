@@ -6,7 +6,7 @@ import { UsersService } from '../Users/users.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { config } from 'dotenv';
 import { AuthService, AuthenticationClass, VerificationClass } from '../auth/auth.service';
-import { AccountModel, EmailVerificationModel, PhoneVerificationModel, LoginLogsModel } from '../auth/auth.model';
+import { AccountModel, EmailVerificationModel, PhoneVerificationModel, LoginLogsModel, RequestsModel } from '../auth/auth.model';
 config();
 
 @Module({
@@ -17,7 +17,8 @@ config();
 			{ name: 'Accounts', schema: AccountModel },
 			{ name: 'EmailVerification', schema: EmailVerificationModel },
 			{ name: 'PhoneVerification', schema: PhoneVerificationModel },
-			{ name: 'LoginLogs', schema: LoginLogsModel }
+			{ name: 'LoginLogs', schema: LoginLogsModel },
+			{ name: 'Requests', schema: RequestsModel },
 		])
 	],
 	providers: [ 

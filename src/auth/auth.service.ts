@@ -1,10 +1,10 @@
 import { Injectable, Scope } from '@nestjs/common';
 import { Model } from 'mongoose';
-import { Account, EmailVerification, LoginLogs, PhoneVerification, VerificationStatus } from './auth.model';
+import { Account, EmailVerification, LoginLogs, PhoneVerification, Requests, VerificationStatus, RequestTypes } from './auth.model';
 import { v4 } from "uuid";
 import { Authority } from "./auth.model";
 import { InjectModel } from "@nestjs/mongoose";
-import { sign, verify } from "jsonwebtoken";
+import { sign, verify, VerifyErrors  } from "jsonwebtoken";
 import { randomBytes } from "crypto";
 
 /**
@@ -51,7 +51,7 @@ export class TokenizationClass {
 	 * @param data object containing the collection id in the database
 	 * @returns a jwt generated string which is in the form `{secretKey}_!{generatedToken}`
 	 */
-	public static GenerateTokenForLogin(data: { id: string }) {
+	public static GenerateToken(data: { id: string }) {
 		const newSecret = randomBytes(64).toString('hex');
 		const returnValue = sign({ data: data }, newSecret, { expiresIn: '7d' });
 		return (newSecret + '_!' + returnValue);
@@ -61,10 +61,10 @@ export class TokenizationClass {
 	 * @param token token stored in the local machine on the client side.
 	 * it updates the expiry date on the existing token.
 	 */
-	public static UpdateTokenForLogin(token: string) {
+	public static UpdateToken(token: string) {
 		try {
-			const tokenData = this.DecodeTokenForLogin(token);
-			return this.GenerateTokenForLogin(tokenData);
+			const tokenData = this.DecodeToken(token);
+			return this.GenerateToken({id: tokenData.data.id });
 		}
 		catch(err) {
 			return ({
@@ -78,9 +78,14 @@ export class TokenizationClass {
 	 * @param token string form`{secretKey}_!{generatedToken}`
 	 * @returns an object containing the collection id of the account in the DB
 	 */
-	public static DecodeTokenForLogin(token: string) {
-		const splitToken = token.split('_!');
-		return verify(splitToken[1], splitToken[0]) as { id: string };
+	public static DecodeToken(token: string) {
+		try {
+			const splitToken = token.split('_!');
+			return verify(splitToken[1], splitToken[0]) as { data: { id: string } };
+		}
+		catch (e: unknown) {
+			throw e;
+		}
 	}
 }
 
@@ -320,6 +325,7 @@ export class AuthenticationClass {
 	constructor(
 		@InjectModel('Accounts') private readonly account: Model<Account>,
 		@InjectModel('LoginLogs') private readonly loginLogs: Model<LoginLogs>,
+		@InjectModel('Requests') private readonly requests: Model<Requests>,
 		private readonly verification: VerificationClass
 	) {}
 
@@ -386,7 +392,7 @@ export class AuthenticationClass {
 			emailId: params.emailId,
 			password: params.password,
 			phone: params.phone.toString(),
-			createAt: Date(),
+			createdAt: Date(),
 			Authority: Authority.CLIENT,
 			verificationStatus: {
 				email: VerificationStatus.NOTVERIFIED,
@@ -408,10 +414,10 @@ export class AuthenticationClass {
 				}
 			});
 		} catch (e) {
-			console.log(e);
 			return ({
 				statusCode: 400,
-				statusMessage: 'Unable to create account'
+				statusMessage: 'Unable to create account',
+				error: e,
 			});
 		}
 	}
@@ -470,7 +476,7 @@ export class AuthenticationClass {
 					return ({
 						statusCode: 200,
 						statusMessage: 'Logged In',
-						authToken: TokenizationClass.GenerateTokenForLogin({ id: (result.id as string) })
+						authToken: TokenizationClass.GenerateToken({ id: (result.id as string) })
 					});
 				else
 					return ({
@@ -484,7 +490,7 @@ export class AuthenticationClass {
 					return ({
 						statusCode: 200,
 						statusMessage: 'Logged In',
-						authToken: TokenizationClass.GenerateTokenForLogin({ id: (result.id as string) })
+						authToken: TokenizationClass.GenerateToken({ id: (result.id as string) })
 					});
 				else
 					return ({
@@ -616,7 +622,6 @@ export class AuthenticationClass {
 	//================ Api for confirming email
 	private async confirmEmail(credentials: { emailId: string, verificationToken: string }) {
 		const getObject = await this.account.findOne({ emailId: credentials.emailId });
-		console.log(getObject);
 		if (!getObject) {
 			return ({
 				status: 404,
@@ -663,7 +668,6 @@ export class AuthenticationClass {
 	//================ Api for Verifying OTP
 	private async verifyOTP(credentials: { phone: string | number, OTP: number }) {
 		const getObject = await this.account.findOne({ phone: credentials.phone.toString() });
-		console.log(getObject);
 		if (!getObject) {
 			return ({
 				status: 404,
@@ -703,6 +707,149 @@ export class AuthenticationClass {
 			return ({
 				status: 400,
 				statusMessage: 'Provided Phone Number is invalid'
+			});
+		}
+	}
+
+	//================ Api for retreiving User Details
+	private async getUserDetails(id: string, fields: string[] = []) {
+		const find = await this.account.findById(id);
+		if (!find) return ({ status: 404, statusMessage: 'user not found' });
+		else {
+			if (fields.length > 0) {
+				const keys = [ 'firstName', 'lastName', 'emailId', 'phone', 'createdAt' ];
+				const userDetails: { 
+					firstName?: string, 
+					lastName?: string,
+					emailId?: string,
+					phone?: string,
+					createdAt?: string,
+				} = {};
+				for (const field of fields) {
+					for (const key of keys) {
+						if ((key.toLowerCase()).includes(field.toLowerCase())) {
+							userDetails[key] = find[key];
+						}
+					}
+				}
+				return ({
+					status: 201,
+					statusMessage: 'User Details fetched',
+					userDetails: userDetails
+				});
+			}
+			else {
+				return ({
+					status: 201,
+					statusMessage: 'User Details fetched',
+					userDetails: {
+						firstName: find.firstName,
+						lastName: find.lastName,
+						emailId: find.emailId,
+						phone: find.phone,
+						createdAt: find.createdAt
+					}
+				});
+			}
+		}
+	}
+	public async getUserDetailsGateway(authenticationToken: string, fields: string[] = []) {
+		try {
+			const { data: { id: tokenValue } } = TokenizationClass.DecodeToken(authenticationToken);
+			return await this.getUserDetails(tokenValue, fields);
+		}
+		catch (e: unknown) {
+			return ({
+				status: 400,
+				error: e as VerifyErrors,
+				statusMessage: 'Error in Token Verification'
+			});
+		}
+	}
+
+	//================ Api for requesting for Authority upgrade
+	private async requestForAuthorityUpgrade(id: string, authorityToUpgrade: Authority) {
+		const find = await this.account.findById(id);
+		if (!find)
+			return ({
+				status: 404,
+				statusMessage: 'Account not found'
+			});
+		
+		const searchForRequest = await this.requests.findOne({ refId: find.id }).exec();
+		console.log(searchForRequest);
+		if (searchForRequest)
+			return ({
+				status: 400,
+				statusMessage: 'One request Already found'
+			});
+		else if (authorityToUpgrade === Authority.CLIENT)
+			return ({
+				status: 400,
+				statusMessage: 'Cannot change to client'
+			});
+		else if (find.Authority === Authority.SUPERUSER)
+			return ({
+				status: 400,
+				statusMessage: 'User already Super User'
+			});
+		else if (
+			find.Authority === Authority.ADMINISTRATOR && 
+			(authorityToUpgrade === Authority.ADMINISTRATOR ||
+			authorityToUpgrade === Authority.SUPERUSER
+			))
+			return ({
+				status: 400,
+				statusMessage: 'Cannot upgrade authority to Administrator'
+			});
+		else if (find.Authority === Authority.MIDTIERUSER && authorityToUpgrade === Authority.MIDTIERUSER)
+			return ({
+				status: 400,
+				statusMessage: 'Already a Midtier User'
+			});
+		else {
+			const requestStatus = new this.requests({
+				requestType: RequestTypes.AUTHORITY_UPGRADE,
+				authorityToUpgrade: authorityToUpgrade,
+				refId: find.id
+			});
+
+			try {
+				const result = await requestStatus.save();
+				if (result)
+					return ({
+						status: 201,
+						statusMessage: 'Request submitted successfully'
+					});
+			}
+			catch (e: unknown) {
+				return ({
+					status: 500,
+					statusMessage: 'Unknown Error',
+					error: e
+				});
+			}
+		}
+	}
+	public async requestForAuthorityUpgradeGateway(authenticationToken: string, authorityToUpgrade: 'super' | 'administrator' | 'mid-tier') {
+		try {
+			const { data: { id: tokenValue } } = TokenizationClass.DecodeToken(authenticationToken);
+			const upgrade = authorityToUpgrade === 'super' ? Authority.SUPERUSER :
+							authorityToUpgrade === 'administrator' ? Authority.ADMINISTRATOR:
+							authorityToUpgrade === 'mid-tier' ? Authority.MIDTIERUSER : undefined;
+			if (upgrade !== undefined)
+				return await this.requestForAuthorityUpgrade(tokenValue, upgrade);
+			else
+				return ({
+					status: 400,
+					statusMessage: 'Authority request is not defined'
+				});
+		}
+		catch (e: unknown) {
+			return ({
+				status: 400,
+				error: e as VerifyErrors,
+				statusMessage: 'Error in Token Verification'
 			});
 		}
 	}
@@ -762,5 +909,11 @@ export class AuthService {
 	}
 	public async verifyOTP(credentials: { phone: string | number, OTP: number }) {
 		return await this.authenticate.verifyOTPGateway(credentials);
+	}
+	public async getUserDetails(authenticationToken: string, fields: string[] = []) {
+		return await this.authenticate.getUserDetailsGateway(authenticationToken, fields);
+	}
+	public async requestForUpgradeAuthority(authenticationToken: string, authorityToUpgrade: 'super' | 'administrator' | 'mid-tier') {
+		return await this.authenticate.requestForAuthorityUpgradeGateway(authenticationToken, authorityToUpgrade);
 	}
 }

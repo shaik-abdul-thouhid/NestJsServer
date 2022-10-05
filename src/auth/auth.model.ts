@@ -1,5 +1,4 @@
 import { Schema } from "mongoose";
-import { v4 } from 'uuid';
 
 export const AccountModel = new Schema({
 	UiD: { type: String, required: true },
@@ -28,7 +27,7 @@ export interface Account {
 		email: VerificationStatus,
 		phone: VerificationStatus
 	},
-	createAt: string
+	createdAt: string
 }
 
 export const EmailVerificationModel = new Schema({
@@ -86,4 +85,20 @@ export const LoginLogsModel = new Schema({
 export interface LoginLogs {
 	refId: string,
 	logs: any[]
+}
+
+export const RequestsModel = new Schema({
+	requestType: { type: Number },
+	authorityToUpgrade: { type: Number },
+	refId: { type: String, required: true }
+});
+
+export enum RequestTypes {
+	AUTHORITY_UPGRADE = 0x00000D,
+}
+
+export interface Requests {
+	refId: string,
+	requestType: RequestTypes,
+	authorityToUpgrade?: Authority.MIDTIERUSER | Authority.ADMINISTRATOR | Authority.SUPERUSER,
 }
