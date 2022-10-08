@@ -87,18 +87,31 @@ export interface LoginLogs {
 	logs: any[]
 }
 
-export const RequestsModel = new Schema({
-	requestType: { type: Number },
-	authorityToUpgrade: { type: Number },
-	refId: { type: Schema.Types.ObjectId, required: true }
-});
-
 export enum RequestTypes {
 	AUTHORITY_UPGRADE = 0x00000D,
+	FORGOT_PASSWORD = 0x0000D0,
+	RESET_PASSWORD = 0x000D00,
 }
+
+export enum ResetStatus {
+	UNSET = 0x0a,
+	SET = 0xa0
+}
+
+export const RequestsModel = new Schema({
+	refId: { type: Schema.Types.ObjectId, required: true },
+	requestType: { type: Number },
+	authorityToUpgrade: { type: Number },
+	forgotPasswordRequestToken: { type: String },
+	resetPasswordToken: { type: String },
+	resetStatus: { type: Number, }
+});
 
 export interface Requests {
 	refId: string,
 	requestType: RequestTypes,
 	authorityToUpgrade?: Authority.MIDTIERUSER | Authority.ADMINISTRATOR | Authority.SUPERUSER,
+	forgotPasswordRequestToken?: string,
+	resetPasswordToken?: string,
+	resetStatus?: ResetStatus
 }

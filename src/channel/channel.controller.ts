@@ -1,5 +1,5 @@
 import { Controller, Post, Header, Req, Request, Body } from "@nestjs/common";
-import { ChannelAccess } from "./channel.model";
+// import { ChannelAccess } from "./channel.model";
 import { ChannelService } from "./channel.service";
 
 @Controller('channel')

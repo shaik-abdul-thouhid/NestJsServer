@@ -1,12 +1,10 @@
 import { Module } from "@nestjs/common";
 import { ChannelService } from "./channel.service";
 import { ChannelController } from "./channel.controller";
-import { UsersModule } from '../Users/users.module';
-import { UsersService } from '../Users/users.service';
+import { UsersModule, UsersService } from '../Users/users.exports';
 import { MongooseModule } from '@nestjs/mongoose';
 import { config } from 'dotenv';
-import { AuthService, AuthenticationClass, VerificationClass } from '../auth/auth.service';
-import { AccountModel, EmailVerificationModel, PhoneVerificationModel, LoginLogsModel, RequestsModel } from '../auth/auth.model';
+import { AuthService, AuthenticationClass, VerificationClass, AccountModel, EmailVerificationModel, PhoneVerificationModel, LoginLogsModel, RequestsModel } from '../auth/auth.exports';
 import { ChannelModel } from './channel.model';
 config();
 

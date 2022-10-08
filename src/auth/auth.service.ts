@@ -1,11 +1,13 @@
 import { Injectable, Scope } from '@nestjs/common';
 import { Model } from 'mongoose';
-import { Account, EmailVerification, LoginLogs, PhoneVerification, Requests, VerificationStatus, RequestTypes } from './auth.model';
+import { Account, ResetStatus, EmailVerification, LoginLogs, PhoneVerification, Requests, VerificationStatus, RequestTypes } from './auth.model';
 import { v4 } from "uuid";
 import { Authority } from "./auth.model";
 import { InjectModel } from "@nestjs/mongoose";
 import { sign, verify, VerifyErrors  } from "jsonwebtoken";
 import { randomBytes } from "crypto";
+import { config } from 'dotenv';
+config();
 
 /**
  * Class with static methods for validating different credentials
@@ -409,7 +411,7 @@ export class AuthenticationClass {
 				statusMessage: 'Account Created',
 				AccountId: result.UiD as string,
 				verfication: {
-					emailVerificationToken: emailVerificationToken.verificationToken,
+					emailVerificationurl: `${process.env.URL}:${process.env.PORT}/user/verify-email?email=${ result.emailId }&token=${ emailVerificationToken.verificationToken }`,
 					OTP: OTP.OTP,
 				}
 			});
@@ -553,8 +555,8 @@ export class AuthenticationClass {
 
 			if (newToken.statusCode === 200) {
 				return ({
-					statusCode: 'New Token generated',
-					verificationToken: newToken.verificationToken
+					statusCode: 201,
+					emailVerificationurl: `${process.env.URL}:${process.env.PORT}/user/verify-email?email=${ account.emailId }&token=${ newToken.verificationToken }`,
 				});
 			}
 
@@ -855,6 +857,169 @@ export class AuthenticationClass {
 			});
 		}
 	}
+
+	//================ Api for requesting for Forgot Password
+	private async RequestForForgotPassword(emailId: string) {
+		const findAccount = await this.account.findOne({ emailId: emailId }).exec();
+		if (!findAccount)
+			return ({
+				statusCode: 404,
+				statusMessage: 'Email Not found'
+			});
+		else {
+			const searchRequest = await this.requests.findOne({ refId: findAccount.id, requestType: RequestTypes.FORGOT_PASSWORD });
+			if (!searchRequest) {
+				const forgotPasswordRequestToken = TokenizationClass.GenerateToken({ id: v4() }).split('_!')[1];
+				const newRequest = new this.requests({
+					refId: findAccount.id,
+					requestType: RequestTypes.FORGOT_PASSWORD,
+					forgotPasswordRequestToken: forgotPasswordRequestToken
+				});
+				const result = await newRequest.save();
+				if (!result)
+					return ({
+						statusCode: 501,
+						statusMessage: 'Unable to parse request'
+					});
+				return ({
+					statusCode: 201,
+					statusMessage: 'Request Created',
+					url: `${ process.env.URL }:${ process.env.PORT }/user/request-reset-password/${ encodeURI(result.forgotPasswordRequestToken) }`
+				});
+			}
+			else {
+				const forgotPasswordRequestToken = TokenizationClass.GenerateToken({ id: v4() }).split('_!')[1];
+				searchRequest.forgotPasswordRequestToken = forgotPasswordRequestToken;
+				const result = await searchRequest.save();
+				return ({
+					statusCode: 201,
+					statusMessage: 'Request Created',
+					url: `${ process.env.URL }:${ process.env.PORT }/user/request-reset-password/${ encodeURI(result.forgotPasswordRequestToken) }`
+				});
+			}
+		}
+	}
+	public async RequestForForgotPasswordGateway(credentials: { emailId: string }) {
+		if (!('emailId' in credentials) || !(ValidatorClass.validateEmail(credentials.emailId)))
+			return ({
+				statusCode: 400,
+				statusMessage: 'Email Id is invalid or not present'
+			});
+		else {
+			return await this.RequestForForgotPassword(credentials.emailId);
+		}
+	}
+
+	//================ Api for Confirming Reset Password
+	private async requestResetPassword(refId: string) {
+		const findRequest = await this.requests.findOne({ requestType: RequestTypes.RESET_PASSWORD, refId: refId });
+		if (!findRequest || findRequest.resetStatus === ResetStatus.SET) {
+			const resetPasswordToken = TokenizationClass.GenerateToken({ id: v4() }).split('_!')[1];
+			const newRequest = new this.requests({
+				refId: refId,
+				requestType: RequestTypes.RESET_PASSWORD,
+				resetPasswordToken: resetPasswordToken,
+				resetStatus: ResetStatus.UNSET
+			});
+			const res = await newRequest.save();
+			if (!res)
+				return ({
+					statusCode: 501,
+					statusMessage: 'Unable to parse Request'
+				});
+			else {
+				return ({
+					url: `${ process.env.URL }:${ process.env.PORT }/user/reset-password?resId=${ encodeURI(res.resetPasswordToken) }`,
+					statusCode: 201,
+					statusMessage: 'Follow the url to change the password'
+				});
+			}
+		}
+		else {
+			const resetPasswordToken = TokenizationClass.GenerateToken({ id: v4() }).split('_!')[1];
+			findRequest.resetPasswordToken = resetPasswordToken;
+			const res = await findRequest.save();
+			if (!res)
+				return ({
+					statusCode: 500,
+					statusMessage: 'Unable to parse Request',
+				});
+			return ({
+				url: `${ process.env.URL }:${ process.env.PORT }/user/reset-password?resId=${ encodeURI(res.resetPasswordToken) }`,
+				statusCode: 201,
+				statusMessage: 'Follow the url to change the password'
+			});
+		}
+	}
+	public async requestResetPasswordGateway(requestToken: string) {
+		const findRequest = await this.requests.findOne({ requestType: RequestTypes.FORGOT_PASSWORD, forgotPasswordRequestToken: requestToken }).exec();
+		if (!findRequest)
+			return ({
+				statusCode: 404,
+				statusMessage: 'Request Not Found'
+			});
+		else {
+			return await this.requestResetPassword(decodeURI(findRequest.refId));
+		}
+	}
+
+	//================ Api for Reseting password
+	private async resetPassword(refId: string, password: string, requestId: string) {
+		const getAccount = await this.account.findById(refId);
+		if (!getAccount) 
+			return ({
+				statusCode: 404,
+				statusMessage: 'Account not found'
+			});
+		else {
+			const res = await this.account.findByIdAndUpdate(refId, { password: password }).exec();
+			console.log('result', res);
+			if (!res)
+				return ({
+					statusCode: 501,
+					statusMessage: 'Unable to update password'
+				});
+			else {
+				const updateRequest = await this.requests.findByIdAndUpdate(requestId, { resetStatus: ResetStatus.SET }).exec();
+				if (updateRequest)
+					return ({
+						statusCode: 201,
+						statusMessage: 'Password updated successfully'
+					});
+				else
+					return ({
+						statusCode: 501,
+						statusMessage: 'Unable to update password'
+					});
+			}
+		}
+	}
+	public async resetPasswordGateway(resId: string, data: { password: string }) {
+		if (!resId || !data)
+			return ({
+				statusCode: 400,
+				statusMessage: 'Invalid credentials or credentials not present'
+			});
+		
+		const getRequest = await this.requests.findOne({ resetPasswordToken: resId });
+		if (!getRequest)
+			return({
+				statusCode: 404,
+				statusMessage: "Request not found"
+			});
+		else if (!ValidatorClass.validatePassword(data.password))
+			return ({
+				statusCode: 400,
+				statusMessage: 'Password not met the criteria, please try a strong password'
+			});
+		else if (getRequest.resetStatus === ResetStatus.SET)
+			return ({
+				statusCode: 400,
+				statusMessage: 'URL already used, resend request'
+			});
+		else
+			return await this.resetPassword(getRequest.refId, data.password, getRequest.id);
+	}
 }
 
 @Injectable()
@@ -917,5 +1082,14 @@ export class AuthService {
 	}
 	public async requestForUpgradeAuthority(authenticationToken: string, authorityToUpgrade: 'super' | 'administrator' | 'mid-tier') {
 		return await this.authenticate.requestForAuthorityUpgradeGateway(authenticationToken, authorityToUpgrade);
+	}
+	public async requestForForgotPassword(credentials: { emailId: string }) {
+		return await this.authenticate.RequestForForgotPasswordGateway(credentials);
+	}
+	public async requestResetPassword(requestToken: string) {
+		return await this.authenticate.requestResetPasswordGateway(requestToken);
+	}
+	public async resetPassword(resId: string, data: { password: string }) {
+		return await this.authenticate.resetPasswordGateway(resId, data);
 	}
 }

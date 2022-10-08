@@ -1,5 +1,5 @@
-import { Injectable, Headers } from '@nestjs/common';
-import { AuthService } from "src/auth/auth.service";
+import { Injectable, } from '@nestjs/common';
+import { AuthService } from "src/auth/auth.exports";
 
 @Injectable()
 export class UsersService {
@@ -32,8 +32,13 @@ export class UsersService {
 		return await this.authService.requestForNewOTP(credentials);
 	}
 
-	public async verifyEmail(credentials: { emailId: string, verificationToken: string }) {
-		return await this.authService.verifyEmail(credentials);
+	public async verifyEmail(emailId: string, verificationToken: string) {
+		if (!emailId || !verificationToken)
+			return ({
+				statusCode: 400,
+				statusMessage: 'Invalid URL'
+			});
+		return await this.authService.verifyEmail({ emailId: emailId, verificationToken: verificationToken });
 	}
 	public async verifyOTP(credentials: { phone: string | number, OTP: number }) {
 		return await this.authService.verifyOTP(credentials);
@@ -87,5 +92,22 @@ export class UsersService {
 			});
 		else
 			return await this.authService.requestForUpgradeAuthority(authenticationToken[1], requestedAuthority);
+	}
+
+	public async RequestForForgotPassword(credentials: { emailId: string }) {
+		return await this.authService.requestForForgotPassword(credentials);
+	}
+
+	public async RequestResetPassword(requestToken: string) {
+		if (requestToken === '' || requestToken === undefined)
+			return ({
+				statusCode: 400,
+				statusMessage: 'Parameters undefined'
+			});
+		else return await this.authService.requestResetPassword(requestToken);
+	}
+
+	public async ResetPassword(resId: string, data: { password: string }) {
+		return await this.authService.resetPassword(resId, data);
 	}
 }

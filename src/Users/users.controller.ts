@@ -1,4 +1,15 @@
-import { Controller, Post, Get, Body, Header, Request, Req, } from '@nestjs/common';
+import { 
+	Controller, 
+	Post, 
+	Get,
+	Query, 
+	Body, 
+	Header, 
+	Request, 
+	Req, 
+	Param,
+	// Response
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { getClientIp } from '@supercharge/request-ip';
 
@@ -11,6 +22,9 @@ import { getClientIp } from '@supercharge/request-ip';
  * 5. VerifyEmail - `POST` /user/verify-email
  * 6. VerifyOTP - `POST` /user/verify-email
  * 7. RequestForAuthorityUpgrade - `POST` /user
+ * 8. RequestForForgotPassword - `POST` /user/forget-password
+ * 9. RequestForResetPassword - `GET` /user/request-reset-password/:requestToken
+ * 10. ResetPassword - `POST` /user/reset-password
  */
 @Controller('user')
 export class UsersController {
@@ -106,8 +120,8 @@ export class UsersController {
 	 */
 	@Post('verify-email')
 	@Header('X-Powered-By', 'MiniTube')
-	public async VerifyEmail(@Body('credentials') credentials: { emailId: string, verificationToken: string }) {
-		return await this.usersService.verifyEmail(credentials);
+	public async VerifyEmail(@Query('email') emailId: string, @Query('token') verificationToken: string ) {
+		return await this.usersService.verifyEmail(emailId, verificationToken);
 	}
 
 	/**
@@ -151,5 +165,42 @@ export class UsersController {
 	@Header('X-Powered-By', 'MiniTube')
 	public async RequestForAuthorityUpgrade(@Req() request: Request, @Body('requestedAuthority') requestedAuthority: string) {
 		return await this.usersService.RequestForAuthorityUpgrade(request, requestedAuthority)
+	}
+
+	/**
+	 * Method: `POST`\
+	 * request.body: {\
+	 * 	*credentials: { emailId: string }\
+	 * }\
+	 * @param credentials fields are required\
+	 */
+	@Post('forget-password')
+	@Header('X-Powered-By', 'MiniTube')
+	public async RequestForForgotPassword(@Body('credentials') credentials: { emailId: string }) {
+		return await this.usersService.RequestForForgotPassword(credentials);
+	}
+
+	/**
+	 * Method: `GET`\
+	 * Params: requestToken: string
+	 * @param requestToken parameter is required\
+	 */
+	@Get('request-reset-password/:requestToken')
+	@Header('X-Powered-By', 'MiniTube')
+	public async RequestResetPassword(@Param('requestToken') requestToken: string) {
+		return await this.usersService.RequestResetPassword(requestToken);
+	}
+
+	/**
+	 * Method: `POST`\
+	 * req.body: {\
+	 * 	data: { password: string }\
+	 * }\
+	 * @param resId query is required\
+	 */
+	@Post('reset-password')
+	@Header('X-Powered-By', 'MiniTube')
+	public async ResetPassword(@Query('resId') resId: string, @Body('data') data: { password: string }) {
+		return await this.usersService.ResetPassword(resId, data);
 	}
 }
