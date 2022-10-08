@@ -411,7 +411,7 @@ export class AuthenticationClass {
 				statusMessage: 'Account Created',
 				AccountId: result.UiD as string,
 				verfication: {
-					emailVerificationurl: `${process.env.URL}:${process.env.PORT}/user/verify-email?email=${ result.emailId }&token=${ emailVerificationToken.verificationToken }`,
+					emailVerificationurl: `${process.env.URL}:${process.env.ACCOUNT_PORT}/user/verify-email?email=${ result.emailId }&token=${ emailVerificationToken.verificationToken }`,
 					OTP: OTP.OTP,
 				}
 			});
@@ -556,7 +556,7 @@ export class AuthenticationClass {
 			if (newToken.statusCode === 200) {
 				return ({
 					statusCode: 201,
-					emailVerificationurl: `${process.env.URL}:${process.env.PORT}/user/verify-email?email=${ account.emailId }&token=${ newToken.verificationToken }`,
+					emailVerificationurl: `${process.env.URL}:${process.env.ACCOUNT_PORT}/user/verify-email?email=${ account.emailId }&token=${ newToken.verificationToken }`,
 				});
 			}
 
@@ -884,7 +884,7 @@ export class AuthenticationClass {
 				return ({
 					statusCode: 201,
 					statusMessage: 'Request Created',
-					url: `${ process.env.URL }:${ process.env.PORT }/user/request-reset-password/${ encodeURI(result.forgotPasswordRequestToken) }`
+					url: `${ process.env.URL }:${ process.env.ACCOUNT_PORT }/user/request-reset-password/${ encodeURI(result.forgotPasswordRequestToken) }`
 				});
 			}
 			else {
@@ -894,7 +894,7 @@ export class AuthenticationClass {
 				return ({
 					statusCode: 201,
 					statusMessage: 'Request Created',
-					url: `${ process.env.URL }:${ process.env.PORT }/user/request-reset-password/${ encodeURI(result.forgotPasswordRequestToken) }`
+					url: `${ process.env.URL }:${ process.env.ACCOUNT_PORT }/user/request-reset-password/${ encodeURI(result.forgotPasswordRequestToken) }`
 				});
 			}
 		}
@@ -929,7 +929,7 @@ export class AuthenticationClass {
 				});
 			else {
 				return ({
-					url: `${ process.env.URL }:${ process.env.PORT }/user/reset-password?resId=${ encodeURI(res.resetPasswordToken) }`,
+					url: `${ process.env.URL }:${ process.env.ACCOUNT_PORT }/user/reset-password?resId=${ encodeURI(res.resetPasswordToken) }`,
 					statusCode: 201,
 					statusMessage: 'Follow the url to change the password'
 				});
@@ -945,7 +945,7 @@ export class AuthenticationClass {
 					statusMessage: 'Unable to parse Request',
 				});
 			return ({
-				url: `${ process.env.URL }:${ process.env.PORT }/user/reset-password?resId=${ encodeURI(res.resetPasswordToken) }`,
+				url: `${ process.env.URL }:${ process.env.ACCOUNT_PORT }/user/reset-password?resId=${ encodeURI(res.resetPasswordToken) }`,
 				statusCode: 201,
 				statusMessage: 'Follow the url to change the password'
 			});
