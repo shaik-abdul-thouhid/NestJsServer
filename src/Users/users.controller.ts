@@ -17,14 +17,15 @@ import { getClientIp } from '@supercharge/request-ip';
  * @Controller for routers related to users\
  * 1. Create Account - `POST` /user/new-user
  * 2. Login - `POST` /user/login
- * 3. RequestForNewEmailToken - `GET` /user/new-email-token
- * 4. RequestForNewOTP - `GET` /user/new-otp
+ * 3. RequestForNewEmailToken - `POST` /user/new-email-token
+ * 4. RequestForNewOTP - `POST` /user/new-otp
  * 5. VerifyEmail - `POST` /user/verify-email
  * 6. VerifyOTP - `POST` /user/verify-email
  * 7. RequestForAuthorityUpgrade - `POST` /user
  * 8. RequestForForgotPassword - `POST` /user/forget-password
  * 9. RequestForResetPassword - `GET` /user/request-reset-password/:requestToken
  * 10. ResetPassword - `POST` /user/reset-password
+ * 11. RequestForUseDetails - `GET` /user?name=true&email=true&id=true&created=true&phone=true
  */
 @Controller('user')
 export class UsersController {
@@ -37,6 +38,7 @@ export class UsersController {
 	 * 		*`firstName`: string;\
      * 		*`lastName`: string;\
      * 		*`emailId`: string;\
+	 * 		*`countryCode`: string\
      * 		*`phone`: string | number;\
      * 		*`password`: string;\
 	 * 	}\
@@ -49,6 +51,7 @@ export class UsersController {
 		firstName: string,
 		lastName: string,
 		emailId: string,
+		countryCode: string,
 		phone: string | number,
 		password: string
 	}) {
@@ -87,7 +90,7 @@ export class UsersController {
 	 * }
 	 * @param credentials all the fields are necessary
 	 */
-	@Get('new-email-token')
+	@Post('new-email-token')
 	@Header('X-Powered-By', 'MiniTube')
 	public async RequestForNewEmailToken(@Body('credentials') credentials: { emailId: string }) {
 		return await this.usersService.requestForNewEmailToken(credentials);
@@ -102,9 +105,9 @@ export class UsersController {
 	 * }
 	 * @param credentials all the fields are necessary
 	 */
-	@Get('new-otp')
+	@Post('new-otp')
 	@Header('X-Powered-By', 'MiniTube')
-	public async RequestForNewOTP(@Body('credentials') credentials: { phone: string | number }) {
+	public async RequestForNewOTP(@Body('credentials') credentials: { countryCode: string, phone: string | number }) {
 		return await this.usersService.requestForNewOTP(credentials);
 	}
 
@@ -118,7 +121,7 @@ export class UsersController {
 	 * }
 	 * @param credentials all the fields are necessary
 	 */
-	@Post('verify-email')
+	@Get('verify-email')
 	@Header('X-Powered-By', 'MiniTube')
 	public async VerifyEmail(@Query('email') emailId: string, @Query('token') verificationToken: string ) {
 		return await this.usersService.verifyEmail(emailId, verificationToken);
@@ -144,13 +147,24 @@ export class UsersController {
 	 * Method: `GET`\
 	 * request.header: { Authorization: string; }\
 	 * @param request
-	 * @param fields required fields are passed in array
-	 * ex: [ 'email', 'phone' ] or [ 'name' ] or [ 'email' ]
+	 * @query id value `true` to be passed if required
+	 * @query name value `true` to be passed if required
+	 * @query email value `true` to be passed if required
+	 * @query phone value `true` to be passed if required
+	 * @query created value `true` to be passed if required
+	 * ex: GET http://localhost/user?name=true&phone=true
 	 */
 	@Get('')
 	@Header('X-Powered-By', 'MiniTube')
-	public async GetUserDetails(@Req() request: Request, @Body('fields') fields?: string[]) {
-		return await this.usersService.getUserDetails(request, fields);
+	public async GetUserDetails(
+		@Req() request: Request, 
+		@Query('id') id?: string,
+		@Query('name') name?: string,
+		@Query('email') email?: string,
+		@Query('phone') phone?: string,
+		@Query('created') createdAt?: string,
+	) {
+		return await this.usersService.getUserDetails(request, { id, name, email, phone, createdAt });
 	}
 
 	/**

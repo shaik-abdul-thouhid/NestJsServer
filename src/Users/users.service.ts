@@ -9,6 +9,7 @@ export class UsersService {
 		firstName: string,
 		lastName: string,
 		emailId: string,
+		countryCode: string,
 		phone: string | number,
 		password: string,
 	}) {
@@ -28,7 +29,7 @@ export class UsersService {
 	public async requestForNewEmailToken(credentials: { emailId: string }) {
 		return await this.authService.requestForNewEmailToken(credentials);
 	}
-	public async requestForNewOTP(credentials: { phone: string | number }) {
+	public async requestForNewOTP(credentials: { countryCode: string, phone: string | number }) {
 		return await this.authService.requestForNewOTP(credentials);
 	}
 
@@ -44,7 +45,7 @@ export class UsersService {
 		return await this.authService.verifyOTP(credentials);
 	}
 
-	public async getUserDetails(req: Request, fields: string[] = []) {
+	public async getUserDetails(req: Request, fields: { id?: string, name?: string, email?: string, phone?: string, createdAt?: string }) {
 		if (!(req.headers['Authorization'] || req.headers['authorization'])) 
 			return ({ 
 				statusCode: 400, 
@@ -63,7 +64,12 @@ export class UsersService {
 				statusCode: 400,
 				statusMessage: 'Invalid Authentication Token'
 			});
-		return await this.authService.getUserDetails(authenticationToken[1], fields);
+
+		const requests: string[] = [];
+		for (const key in fields) {
+			if (fields[key] === 'true') requests.push(key);
+		}
+		return await this.authService.getUserDetails(authenticationToken[1], requests);
 	}
 
 	public async RequestForAuthorityUpgrade(req: Request, requestedAuthority: string) {

@@ -43,6 +43,16 @@ export class ValidatorClass {
 		const phoneRegex = new RegExp(/^\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/);
 		return phoneRegex.test(phone.toString());
 	}
+	/**
+	 * returns true if the given parameter is a valid country code &
+	 * returns false if not
+	 * @param { string } countryCode
+	 * @returns { boolean }
+	 */
+	static validateCountryCode(countryCode: string): boolean {
+		const countryCodeRegex = new RegExp(/^(\+?\d{1,3}|\d{1,4})$/);
+		return countryCodeRegex.test(countryCode);
+	}
 }
 
 /**
@@ -116,8 +126,8 @@ export class VerificationClass {
 		});
 	}
 
-	public async checkPhoneVerificationAvailability(data: { phone: string | number }) {
-		const result = await this.verifyPhone.findOne({ phone: data.phone.toString() });
+	public async checkPhoneVerificationAvailability(data: { countryCode: string, phone: string | number }) {
+		const result = await this.verifyPhone.findOne({ phone: data.phone.toString(), countryCode: data.countryCode[0] === '+' ? data.countryCode : `+${ data.countryCode }` });
 		if (!result) {
 			return ({
 				statusCode: 404,
@@ -155,10 +165,11 @@ export class VerificationClass {
 		}
 	}
 
-	public async generatePhoneVerificationOTP(data: { phone: string | number, refId: string }) {
-		const availablity = await this.checkPhoneVerificationAvailability({ phone: data.phone.toString() });
+	public async generatePhoneVerificationOTP(data: { countryCode: string, phone: string | number, refId: string }) {
+		const availablity = await this.checkPhoneVerificationAvailability({ phone: data.phone.toString(), countryCode: data.countryCode });
 		if (availablity.statusCode === 404) {
 			const newVerification = new this.verifyPhone({
+				countryCode: data.countryCode[0] === '+' ? data.countryCode : `+${ data.countryCode }`,
 				phone: data.phone.toString(),
 				OTP: Math.floor(100000 + Math.random() * 900000),
 				expiryDate: (Date.now() + (12 * 60 * 60 * 60)),
@@ -206,7 +217,7 @@ export class VerificationClass {
 		}
 	}
 
-	public async RequestForAnotherMobileVerification(data: { phone: string | number }) {
+	public async RequestForAnotherMobileVerification(data: { countryCode: string, phone: string | number }) {
 		const availability = await this.checkPhoneVerificationAvailability(data);
 		
 		if (availability.statusCode === 201) {
@@ -228,7 +239,7 @@ export class VerificationClass {
 		else if (availability.statusCode === 404) {
 			return ({
 				statusCode: 404,
-				statusMessage: 'Email Not Found'
+				statusMessage: 'Phone Not Found'
 			});
 		}
 	}
@@ -384,7 +395,8 @@ export class AuthenticationClass {
 		lastName: string,
 		emailId: string,
 		password: string,
-		phone: string | number
+		phone: string | number,
+		countryCode: string
 	}) {
 
 		const newAccount = new this.account({
@@ -393,6 +405,7 @@ export class AuthenticationClass {
 			lastName: params.lastName,
 			emailId: params.emailId,
 			password: params.password,
+			countryCode: params.countryCode[0] === '+' ? params.countryCode : `+${ params.countryCode }` ,
 			phone: params.phone.toString(),
 			createdAt: Date(),
 			Authority: Authority.CLIENT,
@@ -404,7 +417,7 @@ export class AuthenticationClass {
 
 		try {
 			const result = await newAccount.save();
-			const OTP = await this.verification.generatePhoneVerificationOTP({ phone: result.phone, refId: result.id });
+			const OTP = await this.verification.generatePhoneVerificationOTP({ countryCode: result.countryCode, phone: result.phone, refId: result.id });
 			const emailVerificationToken = await this.verification.generateEmailVerificationToken({ emailId: result.emailId, refId: result.id });
 			return ({
 				statusCode: 200,
@@ -427,6 +440,7 @@ export class AuthenticationClass {
 		firstName: string,
 		lastName: string,
 		emailId: string,
+		countryCode: string,
 		password: string,
 		phone: string | number
 	}) {
@@ -579,7 +593,7 @@ export class AuthenticationClass {
 	}
 
 	//================ Api for requesting another OTP
-	private async requestOTP(credentials: { phone: string | number }) {
+	private async requestOTP(credentials: { countryCode: string, phone: string | number }) {
 		const account = await this.account.findOne({ phone: credentials.phone.toString() }).exec();
 		if (!account) {
 			return ({
@@ -594,7 +608,7 @@ export class AuthenticationClass {
 			});
 		}
 		else if (account.verificationStatus.phone === VerificationStatus.NOTVERIFIED as number) {
-			const newToken = await this.verification.RequestForAnotherMobileVerification({ phone: credentials.phone });
+			const newToken = await this.verification.RequestForAnotherMobileVerification(credentials);
 
 			if (newToken.statusCode === 200) {
 				return ({
@@ -609,14 +623,14 @@ export class AuthenticationClass {
 
 		}
 	}
-	public async requestOTPGateway(credentials: { phone: string | number }) {
-		if (ValidatorClass.validatePhone(credentials.phone)) {
+	public async requestOTPGateway(credentials: { countryCode: string, phone: string | number }) {
+		if (ValidatorClass.validatePhone(credentials.phone) && ValidatorClass.validateCountryCode(credentials.countryCode)) {
 			return await this.requestOTP(credentials);
 		}
 		else {
 			return {
 				statusCode: 400,
-				statusMessage: 'Provided Phone Number is invalid'
+				statusMessage: 'Provided Phone Number is invalid or Country Code'
 			}
 		}
 	}
@@ -719,7 +733,7 @@ export class AuthenticationClass {
 		if (!find) return ({ statusCode: 404, statusMessage: 'user not found' });
 		else {
 			if (fields.length > 0) {
-				const keys = [ 'id', 'firstName', 'lastName', 'emailId', 'phone', 'createdAt' ];
+				const keys = [ 'id', 'firstName', 'lastName', 'emailId', 'phone', 'createdAt', 'countryCode' ];
 				const userDetails: { 
 					id?: string,
 					firstName?: string, 
@@ -1030,6 +1044,7 @@ export class AuthService {
 		firstName: string,
 		lastName: string,
 		emailId: string,
+		countryCode: string,
 		phone: string | number,
 		password: string
 	}) {
@@ -1038,7 +1053,8 @@ export class AuthService {
 			'lastName' in params &&
 			'emailId' in params && ValidatorClass.validateEmail(params.emailId) &&
 			'phone' in params && ValidatorClass.validatePhone(params.phone) &&
-			'password' in params && ValidatorClass.validatePassword(params.password)
+			'password' in params && ValidatorClass.validatePassword(params.password) &&
+			'countryCode' in params && ValidatorClass.validateCountryCode(params.countryCode)
 		) {
 			const response = await this.authenticate.checkForAccountAvailabilityGateWay({ emailId: params.emailId, phone: params.phone });
 
@@ -1068,7 +1084,7 @@ export class AuthService {
 	public async requestForNewEmailToken(credentials: { emailId: string }) {
 		return await this.authenticate.requestEmailVerificationTokenGateway(credentials);
 	}
-	public async requestForNewOTP(credentials: { phone: string | number }) {
+	public async requestForNewOTP(credentials: { countryCode: string, phone: string | number }) {
 		return await this.authenticate.requestOTPGateway(credentials);
 	}
 	public async verifyEmail(credentials: { emailId: string, verificationToken: string }) {

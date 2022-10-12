@@ -8,6 +8,7 @@ export const AccountModel = new Schema({
 	phone: { type: String, required: true, unique: true },
 	password: { type: String, required: true },
 	Authority: { type: Number, required: true },
+	countryCode: { type: String, required: true },
 	verificationStatus: { type: {
 		email: { type: Number, required: true },
 		phone: { type: Number, required: true }
@@ -20,6 +21,7 @@ export interface Account {
 	firstName: string,
 	lastName: string,
 	emailId: string,
+	countryCode: string,
 	phone: string,
 	password: string,
 	Authority: Authority,
@@ -49,6 +51,7 @@ export interface EmailVerification {
 }
 
 export const PhoneVerificationModel = new Schema({
+	countryCode: { type: String, required: true },
 	phone: { type: String, required: true },
 	OTP: { type: Number, required: true },
 	expiryDate: { type: Number, required: true },
@@ -58,7 +61,7 @@ export const PhoneVerificationModel = new Schema({
 });
 
 export interface PhoneVerification {
-	emailId: string,
+	countryCode: string,
 	OTP: number,
 	expiryDate: number,
 	refId: string,
@@ -84,7 +87,7 @@ export const LoginLogsModel = new Schema({
 });
 export interface LoginLogs {
 	refId: string,
-	logs: any[]
+	logs: unknown[]
 }
 
 export enum RequestTypes {
@@ -114,4 +117,44 @@ export interface Requests {
 	forgotPasswordRequestToken?: string,
 	resetPasswordToken?: string,
 	resetStatus?: ResetStatus
+}
+
+export const UserModel = new Schema({
+	refId: { type: Schema.Types.ObjectId, required: true, unique: true, immutable: true },
+	DOB: { type: {
+		date: { type: Number, required: true },
+		month: { type: Number, required: true },
+		year: { type: Number, required: true }
+	}},
+	BankDetails: { type: {
+		Customer_Id: { type: String, required: true },
+		name: { type: String, required: true },
+		street: { type: String, required: true },
+		city: { type: String, required: true },
+		state: { type: String, required: true },
+		PIN: { type: String, require: true },
+		emailId: { type: String, required: true },
+		phone: { type: String, required: true }
+	} },
+	city: { type: String },
+	PIN: { type: String },
+	country: { type: String }
+});
+
+export interface User {
+	refId: string,
+	DOB?: { date: number, month: number, year: number },
+	BankDetails?: {
+		Customer_Id: string,
+		name: string,
+		street: string,
+		city: string,
+		state: string,
+		PIN: string,
+		emailId: string,
+		phone: string
+	},
+	city: string,
+	PIN: string,
+	country: string
 }
