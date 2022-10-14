@@ -125,7 +125,8 @@ export const UserModel = new Schema({
 		date: { type: Number, required: true },
 		month: { type: Number, required: true },
 		year: { type: Number, required: true }
-	}},
+	}, required: true },
+	gender: { type: String, required: true },
 	BankDetails: { type: {
 		Customer_Id: { type: String, required: true },
 		name: { type: String, required: true },
@@ -141,9 +142,25 @@ export const UserModel = new Schema({
 	country: { type: String }
 });
 
+export enum GenderEnum {
+	MALE = 'MALE',
+	male = 'MALE',
+	Male = 'MALE',
+	FEMALE = 'FEMALE',
+	Female = 'FEMALE',
+	female = 'FEMALE',
+	Others = 'OTHERS',
+	others = 'OTHERS',
+	OTHERS = 'OTHERS',
+	None = 'NONE',
+	none = 'NONE',
+	NONE = 'NONE'
+}
+
 export interface User {
 	refId: string,
-	DOB?: { date: number, month: number, year: number },
+	DOB: { date: number, month: number, year: number },
+	gender: GenderEnum
 	BankDetails?: {
 		Customer_Id: string,
 		name: string,

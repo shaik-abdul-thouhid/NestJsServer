@@ -1,6 +1,7 @@
 import { 
 	Controller, 
 	Post, 
+	Put,
 	Get,
 	Query, 
 	Body, 
@@ -8,10 +9,14 @@ import {
 	Request, 
 	Req, 
 	Param,
+	UploadedFile,
+	UseInterceptors,
 	// Response
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { getClientIp } from '@supercharge/request-ip';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Express } from 'express';
 
 /**
  * @Controller for routers related to users\
@@ -49,7 +54,7 @@ export class UsersController {
 	@Header('X-Powered-By', 'Minitube')
 	public async createAccount(@Body('credentials') credentials: {
 		firstName: string,
-		lastName: string,
+		lastName?: string,
 		emailId: string,
 		countryCode: string,
 		phone: string | number,
@@ -216,5 +221,13 @@ export class UsersController {
 	@Header('X-Powered-By', 'MiniTube')
 	public async ResetPassword(@Query('resId') resId: string, @Body('data') data: { password: string }) {
 		return await this.usersService.ResetPassword(resId, data);
+	}
+
+	@Put('profile-image')
+	@Header('X-Powered-By', 'MiniTube')
+	@UseInterceptors(FileInterceptor('file'))
+	public async UpdateImage(@UploadedFile() file: Express.Multer.File) {
+		console.log(file);
+		return ({ statusCode: 201 });
 	}
 }

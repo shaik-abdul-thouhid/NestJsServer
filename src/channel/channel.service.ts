@@ -1,5 +1,5 @@
 import { Injectable, Scope, Request } from '@nestjs/common';
-import { Channel, ChannelAccess } from './channel.model';
+import { Channel, ChannelAccess, Subscriptions } from './channel.model';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { HttpService } from '@nestjs/axios';
@@ -14,6 +14,11 @@ config();
 export class RequestService {
 	constructor(private readonly http: HttpService) {}
 
+	/**
+	 * 
+	 * @param authToken string to contain Prefix Bearer || bearer followed by authtoken
+	 * @returns 
+	 */
 	public async GetUserDetails(authToken: string) {
 		const getUserDetails = await this.http.axiosRef.get(
 			`${ process.env.URL }:${ process.env.ACCOUNT_PORT }/user`,
@@ -23,7 +28,7 @@ export class RequestService {
 				}
 			}
 		);
-		return getUserDetails.data;
+		return getUserDetails.data as { userDetails: { id: string, firstName: string, lastName: string, emailId: string, phone: string, createdAt: string }, statusCode: number, statusMessage: string };
 	}
 }
 
@@ -31,6 +36,7 @@ export class RequestService {
 export class ChannelService {
 	constructor(
 		@InjectModel('Channel') private readonly channel: Model<Channel>,
+		@InjectModel('Subscriptions') private readonly subscriptions: Model<Subscriptions>,
 		private readonly requestService: RequestService
 	) {}
 
@@ -44,14 +50,15 @@ export class ChannelService {
 		createdAt: string
 	}, newChannelData: { channelName: string, channelAccess?: ChannelAccess}) {
 		const checkChannelAvailability = await this.channel.findOne({ refId: userDetails.id }).exec();
+		
 		if (!checkChannelAvailability) {
 			const checkForChannelName = await this.channel.find({ channelName: newChannelData.channelName }).exec();
+
 			if (checkForChannelName.length === 0) {
 				const newChannel = await new this.channel({
 					refId: userDetails.id,
 					channelUiD: v4(),
 					channelName: newChannelData.channelName,
-					subscriptions: [],
 					numberOfVideos: 0,
 					numberOfPlaylists: 0,
 					createdOn: Date(),
@@ -87,28 +94,22 @@ export class ChannelService {
 		const getUser = await this.requestService.GetUserDetails(authToken);
 		if (getUser.statusCode !== 201)
 			return getUser;
-		else if (!newChannelData && !('channelData' in newChannelData))
+		else if (!newChannelData && !('channelName' in newChannelData))
 			return ({
 				statusCode: 400,
 				statusMessage: 'Invalid request, no data provided'
 			});
-		else {
-			const channelData = {
-				channelName: newChannelData.channelName,
-				channelAccess: (!('channelAccess' in newChannelData) || newChannelData.channelAccess === 'public' || newChannelData.channelAccess !== 'private') ? ChannelAccess.PUBLIC
-								: ChannelAccess.PRIVATE,
-			};
-			return await this.CreateNewChannel(
-				(<{ 
-					firstName: string, 
-					lastName: string, 
-					id: string, 
-					emailId: string, 
-					phone: string, 
-					createdAt: string 
-				}> getUser?.userDetails),
-				channelData
-			);
-		}
+		else if (newChannelData.channelName.length < 6 || newChannelData.channelName.length > 20)
+			return ({
+				statusCode: 400,
+				statusMessage: 'Please Use a channel Name between 6 to 20 characters'
+			});
+
+		const channelData = {
+			channelName: newChannelData.channelName,
+			channelAccess: (!('channelAccess' in newChannelData) || newChannelData.channelAccess === 'public' || newChannelData.channelAccess !== 'private') ? ChannelAccess.PUBLIC
+							: ChannelAccess.PRIVATE,
+		};
+		return await this.CreateNewChannel(getUser.userDetails, channelData);
 	}
 }

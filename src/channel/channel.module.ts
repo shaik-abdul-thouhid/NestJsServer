@@ -6,7 +6,7 @@ import { ChannelController } from "./channel.controller";
 
 import { MongooseModule } from '@nestjs/mongoose';
 import { config } from 'dotenv';
-import { ChannelModel } from './channel.model';
+import { ChannelModel, SubscriptionsModel } from './channel.model';
 
 config();
 
@@ -15,6 +15,7 @@ config();
 		MongooseModule.forRoot(`${ process.env.DATABASE_URL }/channel`),
 		MongooseModule.forFeature([
 			{ name: 'Channel', schema: ChannelModel },
+			{ name: 'Subscriptions', schema: SubscriptionsModel }
 		]),
 		HttpModule.registerAsync({
 			useFactory: () => ({ timeout: 10000, maxRedirects: 5 }),

@@ -9,7 +9,6 @@ export const ChannelModel = new Schema({
 	channelUiD: { type: String, required: true, unique: true, immutable: true },
 	channelName: { type: String, required: true, unique: true, immutable: true },
 	refId: { type: Schema.Types.ObjectId, required: true, unique: true, immutable: true },
-	subscriptions: { type: [{ id: { type: String }, subscribedOn: { type: String } }], default: [] },
 	numberOfVideos: { types: Number },
 	numberOfPlaylists: { types: Number },
 	createdOn: { type: String, required: true },
@@ -20,7 +19,6 @@ export interface Channel {
 	channelUiD: string,
 	channelName: string,
 	refId: string,
-	subscriptions: { id: string, subscribedOn: string }[],
 	numberOfVideos: number,
 	numberOfPlaylists: number,
 	createdOn: string,
@@ -28,6 +26,20 @@ export interface Channel {
 }
 
 export const SubscriptionsModel = new Schema({
-	refId: { type: String, required: true },
-	
+	refId: { type: Schema.Types.ObjectId, required: true, unique: true, immutable: true },
+	subscriptions: { 
+		type: [{ 
+			subscribedUserId: { type: Schema.Types.ObjectId, required: true, }, 
+			subscribedOn: { type: String, required: true, } 
+		}], 
+		required: true 
+	},
 });
+
+export interface Subscriptions {
+	refId: string,
+	subscriptions: {
+		subscribedUserid: string,
+		subscribedOn: string
+	}[]
+}

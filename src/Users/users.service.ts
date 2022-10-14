@@ -7,7 +7,7 @@ export class UsersService {
 
 	public async createAccount(params: {
 		firstName: string,
-		lastName: string,
+		lastName?: string,
 		emailId: string,
 		countryCode: string,
 		phone: string | number,

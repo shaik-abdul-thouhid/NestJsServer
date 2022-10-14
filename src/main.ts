@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { config } from 'dotenv';
 import { UsersModule } from './Users/users.module';
 import { ChannelModule } from './channel/channel.module';
+// import { firebaseConfig } from './firebase.config';
 config();
 
 (async function () {

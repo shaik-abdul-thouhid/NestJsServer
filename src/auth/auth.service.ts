@@ -7,53 +7,10 @@ import { InjectModel } from "@nestjs/mongoose";
 import { sign, verify, VerifyErrors  } from "jsonwebtoken";
 import { randomBytes } from "crypto";
 import { config } from 'dotenv';
+import { ValidatorClass } from '../ValidatorClass';
+import { firebaseConfig } from '../firebase.config';
+import { getStorage, ref } from 'firebase/storage';
 config();
-
-/**
- * Class with static methods for validating different credentials
- */
-export class ValidatorClass {
-	/**
-	 * validates a given email and returns a boolean as a value
-	 * true if the provided parameter is an email, 
-	 * false if the provided parameter is not an email
-	 * @param { string } email 
-	 */
-	static validateEmail(email: string): boolean {
-		const emailRgExp = new RegExp(/^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/);
-		return emailRgExp.test(email);
-	}
-	/**
-	 * validates a given password and returns a boolean as a value
-	 * ##### true if the password is 8 character long and contains atleast one special character, a number, a uppercase and a lower case letter
-	 * ##### false if doesnot contains even one of the above conditions.
-	 * @param { string } password 
-	 */
-	static validatePassword(password: string): boolean {
-		const strongPassword = new RegExp("^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#\$%\^&\*])(?=.{8,})");
-		return strongPassword.test(password);
-	}
-	/**
-	 * returns true if the given parameter is a phone &
-	 * returns false if not
-	 * @param { string } phone
-	 * @returns { boolean }
-	 */
-	static validatePhone(phone: string | number): boolean {
-		const phoneRegex = new RegExp(/^\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/);
-		return phoneRegex.test(phone.toString());
-	}
-	/**
-	 * returns true if the given parameter is a valid country code &
-	 * returns false if not
-	 * @param { string } countryCode
-	 * @returns { boolean }
-	 */
-	static validateCountryCode(countryCode: string): boolean {
-		const countryCodeRegex = new RegExp(/^(\+?\d{1,3}|\d{1,4})$/);
-		return countryCodeRegex.test(countryCode);
-	}
-}
 
 /**
  * Static class for generating, decoding, and updating the tokens and its instances
@@ -392,7 +349,7 @@ export class AuthenticationClass {
 	//================ Api for creating a new Account
 	private async createAccount(params: {
 		firstName: string,
-		lastName: string,
+		lastName?: string,
 		emailId: string,
 		password: string,
 		phone: string | number,
@@ -402,7 +359,7 @@ export class AuthenticationClass {
 		const newAccount = new this.account({
 			UiD: v4(),
 			firstName: params.firstName,
-			lastName: params.lastName,
+			lastName: params.lastName ?? "",
 			emailId: params.emailId,
 			password: params.password,
 			countryCode: params.countryCode[0] === '+' ? params.countryCode : `+${ params.countryCode }` ,
@@ -438,7 +395,7 @@ export class AuthenticationClass {
 	}
 	public async createAccountGateway(params: {
 		firstName: string,
-		lastName: string,
+		lastName?: string,
 		emailId: string,
 		countryCode: string,
 		password: string,
@@ -1034,6 +991,14 @@ export class AuthenticationClass {
 		else
 			return await this.resetPassword(getRequest.refId, data.password, getRequest.id);
 	}
+
+	//================ Api for updating profile image
+	private async updateProfilePic() {
+		const storageRef = ref(getStorage(firebaseConfig), 'profile');
+		console.log(storageRef);
+		
+	}
+	public async updateProfilePicGateway() { return; }
 }
 
 @Injectable()
@@ -1042,7 +1007,7 @@ export class AuthService {
 
 	public async createAccount(params: {
 		firstName: string,
-		lastName: string,
+		lastName?: string,
 		emailId: string,
 		countryCode: string,
 		phone: string | number,
@@ -1050,7 +1015,6 @@ export class AuthService {
 	}) {
 		if (
 			'firstName' in params &&
-			'lastName' in params &&
 			'emailId' in params && ValidatorClass.validateEmail(params.emailId) &&
 			'phone' in params && ValidatorClass.validatePhone(params.phone) &&
 			'password' in params && ValidatorClass.validatePassword(params.password) &&
