@@ -1,42 +1,40 @@
 /**
  * Class with static methods for validating different credentials
  */
- export class ValidatorClass {
+export class ValidatorClass {
 	/**
-	 * validates a given email and returns a boolean as a value
-	 * true if the provided parameter is an email, 
-	 * false if the provided parameter is not an email
-	 * @param { string } email 
+	 * It checks if the email is valid by checking if it contains an @ symbol and a . symbol
+	 * @param {string} email - string - The email address to validate
+	 * @returns A boolean value.
 	 */
 	static validateEmail(email: string): boolean {
 		const emailRgExp = new RegExp(/^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/);
 		return emailRgExp.test(email);
 	}
 	/**
-	 * validates a given password and returns a boolean as a value
-	 * ##### true if the password is 8 character long and contains atleast one special character, a number, a uppercase and a lower case letter
-	 * ##### false if doesnot contains even one of the above conditions.
-	 * @param { string } password 
+	 * The password must be at least 8 characters long and contain at least one lowercase letter, one
+	 * uppercase letter, one number, and one special character.
+	 * @param {string} password - The password to validate.
+	 * @returns A boolean value.
 	 */
 	static validatePassword(password: string): boolean {
 		const strongPassword = new RegExp("^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#\$%\^&\*])(?=.{8,})");
 		return strongPassword.test(password);
 	}
 	/**
-	 * returns true if the given parameter is a phone &
-	 * returns false if not
-	 * @param { string } phone
-	 * @returns { boolean }
+	 * The function takes a phone number as a string or number and returns true if the phone number is
+	 * valid and false if it is not.
+	 * @param {string | number} phone - string | number
+	 * @returns A boolean value.
 	 */
 	static validatePhone(phone: string | number): boolean {
 		const phoneRegex = new RegExp(/^\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/);
 		return phoneRegex.test(phone.toString());
 	}
 	/**
-	 * returns true if the given parameter is a valid country code &
-	 * returns false if not
-	 * @param { string } countryCode
-	 * @returns { boolean }
+	 * It checks if the country code is a valid country code.
+	 * @param {string} countryCode - The country code of the phone number.
+	 * @returns A boolean value.
 	 */
 	static validateCountryCode(countryCode: string): boolean {
 		const countryCodeRegex = new RegExp(/^(\+?\d{1,3}|\d{1,4})$/);
