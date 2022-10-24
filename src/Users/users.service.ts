@@ -1,4 +1,5 @@
 import { Injectable, } from '@nestjs/common';
+import { verify } from 'jsonwebtoken';
 import { AuthService } from "src/auth/auth.exports";
 
 @Injectable()
@@ -13,7 +14,19 @@ export class UsersService {
 		phone: string | number,
 		password: string,
 	}) {
-		return await this.authService.createAccount(params);
+		const p = params.password.slice(0, params.password.length - 128)
+		const secret = params.password.slice(-128);
+		try {
+			const decoded = verify(p, secret) as string;
+			params.password = decoded;
+			return await this.authService.createAccount(params);
+		}
+		catch (e: unknown) {
+			return ({
+				statusCode: 404,
+				statusMessage: 'Invalid Password Payload'
+			});
+		}
 	}
 
 	public async Login(credentials: { 
@@ -23,7 +36,18 @@ export class UsersService {
 		phone: string | number,
 		password: string
 	}, headers: Headers, ip: string) {
-		return await this.authService.login(credentials, headers, ip);
+		const p = credentials.password.slice(0, credentials.password.length - 128)
+		const secret = credentials.password.slice(-128);
+		try {
+			const decoded = verify(p, secret) as string;
+			credentials.password = decoded;
+			return await this.authService.login(credentials, headers, ip);
+		} catch (e: unknown) {
+			return ({
+				statusCode: 400,
+				statusMessage: 'Invalid Password Payload'
+			});
+		}
 	}
 
 	public async requestForNewEmailToken(credentials: { emailId: string }) {
@@ -59,11 +83,6 @@ export class UsersService {
 				statusCode: 400,
 				statusMessage: 'Bearer Token not found',
 			});
-		else if (authenticationToken[1].length !== 313)
-			return ({
-				statusCode: 400,
-				statusMessage: 'Invalid Authentication Token'
-			});
 
 		const requests: string[] = [];
 		for (const key in fields) {
@@ -85,11 +104,6 @@ export class UsersService {
 			return ({
 				statusCode: 400,
 				statusMessage: 'Bearer Token not found',
-			});
-		else if (authenticationToken[1].length !== 313)
-			return ({
-				statusCode: 400,
-				statusMessage: 'Invalid Authentication Token'
 			});
 		else if (requestedAuthority !== 'super' && requestedAuthority !== 'administrator' && requestedAuthority !== 'mid-tier')
 			return ({
@@ -114,6 +128,17 @@ export class UsersService {
 	}
 
 	public async ResetPassword(resId: string, data: { password: string }) {
-		return await this.authService.resetPassword(resId, data);
+		const p = data.password.slice(0, data.password.length - 128)
+		const secret = data.password.slice(-128);
+		try {
+			const decoded = verify(p, secret) as string;
+			data.password = decoded;
+			return await this.authService.resetPassword(resId, data);
+		} catch (err) {
+			return ({
+				statusCode: 400,
+				statusMessage: 'Invalid Payload string'
+			});
+		}
 	}
 }

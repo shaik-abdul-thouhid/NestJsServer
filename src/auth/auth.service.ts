@@ -10,6 +10,7 @@ import { config } from 'dotenv';
 import { ValidatorClass } from '../ValidatorClass';
 import { firebaseConfig } from '../firebase.config';
 import { getStorage, ref } from 'firebase/storage';
+import { compare, genSalt, hash } from "bcrypt";
 config();
 
 /**
@@ -23,7 +24,7 @@ export class TokenizationClass {
 	public static GenerateToken(data: { id: string }) {
 		const newSecret = randomBytes(64).toString('hex');
 		const returnValue = sign({ data: data }, newSecret, { expiresIn: '7d' });
-		return (newSecret + '_!' + returnValue);
+		return (returnValue + newSecret);
 	}
 
 	/**
@@ -49,8 +50,9 @@ export class TokenizationClass {
 	 */
 	public static DecodeToken(token: string) {
 		try {
-			const splitToken = token.split('_!');
-			return verify(splitToken[1], splitToken[0]) as { data: { id: string } };
+			const secret = token.slice(-128);
+			const encode = token.slice(0, token.length - 128);
+			return verify(encode, secret) as { data: { id: string } };
 		}
 		catch (e: unknown) {
 			throw e;
@@ -100,8 +102,8 @@ export class VerificationClass {
 	}
 
 	public async generateEmailVerificationToken(data: { emailId: string, refId: string }) {
-		const availablity = await this.checkEmailVerificationAvailability({ emailId: data.emailId });
-		if (availablity.statusCode === 404) {
+		const availability = await this.checkEmailVerificationAvailability({ emailId: data.emailId });
+		if (availability.statusCode === 404) {
 			const newVerification = new this.verifyEmail({
 				emailId: data.emailId,
 				verificationToken: randomBytes(32).toString('hex'),
@@ -123,8 +125,8 @@ export class VerificationClass {
 	}
 
 	public async generatePhoneVerificationOTP(data: { countryCode: string, phone: string | number, refId: string }) {
-		const availablity = await this.checkPhoneVerificationAvailability({ phone: data.phone.toString(), countryCode: data.countryCode });
-		if (availablity.statusCode === 404) {
+		const availability = await this.checkPhoneVerificationAvailability({ phone: data.phone.toString(), countryCode: data.countryCode });
+		if (availability.statusCode === 404) {
 			const newVerification = new this.verifyPhone({
 				countryCode: data.countryCode[0] === '+' ? data.countryCode : `+${ data.countryCode }`,
 				phone: data.phone.toString(),
@@ -355,13 +357,15 @@ export class AuthenticationClass {
 		phone: string | number,
 		countryCode: string
 	}) {
+		// const rounds = Math.floor(Math.random() * (50 - 21) + 21);
+		const salt = await genSalt(13);
 
 		const newAccount = new this.account({
 			UiD: v4(),
 			firstName: params.firstName,
 			lastName: params.lastName ?? "",
 			emailId: params.emailId,
-			password: params.password,
+			password: await hash(params.password, salt),
 			countryCode: params.countryCode[0] === '+' ? params.countryCode : `+${ params.countryCode }` ,
 			phone: params.phone.toString(),
 			createdAt: Date(),
@@ -380,8 +384,8 @@ export class AuthenticationClass {
 				statusCode: 200,
 				statusMessage: 'Account Created',
 				AccountId: result.UiD as string,
-				verfication: {
-					emailVerificationurl: `${process.env.URL}:${process.env.ACCOUNT_PORT}/user/verify-email?email=${ result.emailId }&token=${ emailVerificationToken.verificationToken }`,
+				verification: {
+					emailVerificationUrl: `${process.env.URL}:${process.env.ACCOUNT_PORT}/user/verify-email?email=${ result.emailId }&token=${ emailVerificationToken.verificationToken }`,
 					OTP: OTP.OTP,
 				}
 			});
@@ -412,14 +416,24 @@ export class AuthenticationClass {
 		phone: string | number,
 		password: string
 	}, headers: Headers, ip: string) {
-		const result = await this.account.findOne({ ...credentials }).exec();
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		let result: any;
 
+		if ('emailId' in credentials)
+			result = await this.account.findOne({ emailId: credentials.emailId }).exec();
+		else if ('phone' in credentials)
+			result = await this.account.findOne({ phone: credentials.phone.toString() }).exec();
+	
 		if (!result) 
 			return ({
 				statusCode: 404, 
 				statusMessage: 'Account Not Found'
 			});
-
+		else if (await compare(credentials.password, result.password) === false)
+			return ({
+				statusCode: 400,
+				statusMessage: 'Password Incorrect'
+			});
 		else {
 			if (result.verificationStatus.email === VerificationStatus.NOTVERIFIED && result.verificationStatus.phone === VerificationStatus.NOTVERIFIED) {
 				return ({
@@ -527,7 +541,7 @@ export class AuthenticationClass {
 			if (newToken.statusCode === 200) {
 				return ({
 					statusCode: 201,
-					emailVerificationurl: `${process.env.URL}:${process.env.ACCOUNT_PORT}/user/verify-email?email=${ account.emailId }&token=${ newToken.verificationToken }`,
+					emailVerificationUrl: `${process.env.URL}:${process.env.ACCOUNT_PORT}/user/verify-email?email=${ account.emailId }&token=${ newToken.verificationToken }`,
 				});
 			}
 
@@ -684,7 +698,7 @@ export class AuthenticationClass {
 		}
 	}
 
-	//================ Api for retreiving User Details
+	//================ Api for retrieving User Details
 	private async getUserDetails(id: string, fields: string[] = []) {
 		const find = await this.account.findById(id);
 		if (!find) return ({ statusCode: 404, statusMessage: 'user not found' });
@@ -780,7 +794,7 @@ export class AuthenticationClass {
 		else if (find.Authority === Authority.MIDTIERUSER && authorityToUpgrade === Authority.MIDTIERUSER)
 			return ({
 				statusCode: 400,
-				statusMessage: 'Already a Midtier User'
+				statusMessage: 'Already a Mid-tier User'
 			});
 		else {
 			const requestStatus = new this.requests({
@@ -934,7 +948,7 @@ export class AuthenticationClass {
 		}
 	}
 
-	//================ Api for Reseting password
+	//================ Api for Resetting password
 	private async resetPassword(refId: string, password: string, requestId: string) {
 		const getAccount = await this.account.findById(refId);
 		if (!getAccount) 
@@ -943,7 +957,9 @@ export class AuthenticationClass {
 				statusMessage: 'Account not found'
 			});
 		else {
-			const res = await this.account.findByIdAndUpdate(refId, { password: password }).exec();
+			const salt = await genSalt(13);
+			const hashedPassword = await hash(password, salt);
+			const res = await this.account.findByIdAndUpdate(refId, { password: hashedPassword }).exec();
 			console.log('result', res);
 			if (!res)
 				return ({

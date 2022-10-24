@@ -7,9 +7,9 @@ config();
 
 (async function () {
 	// nest instance for users Api's
-	const users = await NestFactory.create(UsersModule);
+	const users = await NestFactory.create(UsersModule, { logger: [ 'debug', 'warn', 'error', 'log' ] });
 	// nest instance for channel Api's
-	const channel = await NestFactory.create(ChannelModule);
+	const channel = await NestFactory.create(ChannelModule, { logger: [ 'debug', 'warn', 'error', 'log' ] });
 
 	users.enableCors(); channel.enableCors();
 	await users.listen(process.env.ACCOUNT_PORT || 3333, async () => {
